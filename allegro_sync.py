@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Read-only Allegro offer audit. Live writes are deliberately unsupported."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import csv
+import json
+import os
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+API = "https://api.allegro.pl"
+TOKEN_URL = "https://allegro.pl/auth/oauth/token"
+ACCEPT = "application/vnd.allegro.public.v1+json"
+
+
+def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
+    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    data = urllib.parse.urlencode(
+        {"grant_type": "refresh_token", "refresh_token": refresh_token}
+    ).encode()
+    request = urllib.request.Request(
+        TOKEN_URL,
+        data=data,
+        headers={"Authorization": f"Basic {credentials}", "Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+def api_get(path: str, access_token: str) -> dict:
+    request = urllib.request.Request(
+        API + path,
+        headers={"Authorization": f"Bearer {access_token}", "Accept": ACCEPT},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+def load_preview(path: Path) -> dict[str, dict[str, str]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {row["sku"]: row for row in csv.DictReader(handle) if row.get("sku")}
+
+
+def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict[str, int]:
+    result = {"offers": 0, "matched_by_sku": 0, "unmatched": 0, "price_changes": 0, "stock_changes": 0}
+    offset = 0
+    while True:
+        payload = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
+        offers = payload.get("offers", [])
+        for offer in offers:
+            result["offers"] += 1
+            sku = ((offer.get("external") or {}).get("id") or "").strip()
+            row = preview.get(sku)
+            if not row:
+                result["unmatched"] += 1
+                continue
+            result["matched_by_sku"] += 1
+            current_price = str(((offer.get("sellingMode") or {}).get("price") or {}).get("amount") or "")
+            current_stock = str(((offer.get("stock") or {}).get("available") or ""))
+            result["price_changes"] += int(current_price != row["price_eur_plus_10pct"])
+            result["stock_changes"] += int(current_stock != row["quantity"])
+        if len(offers) < 1000:
+            break
+        offset += len(offers)
+    return result
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--preview", type=Path, default=Path("build/allegro-preview.csv"))
+    parser.add_argument("--output", type=Path, default=Path("build/allegro-audit.json"))
+    args = parser.parse_args()
+    required = {name: os.environ.get(name, "") for name in ("ALLEGRO_CLIENT_ID", "ALLEGRO_CLIENT_SECRET", "ALLEGRO_REFRESH_TOKEN")}
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
+    tokens = refresh_access_token(required["ALLEGRO_CLIENT_ID"], required["ALLEGRO_CLIENT_SECRET"], required["ALLEGRO_REFRESH_TOKEN"])
+    me = api_get("/me", tokens["access_token"])
+    if me.get("login") != "Automotodiely":
+        raise SystemExit(f"Wrong Allegro account: {me.get('login', 'unknown')}")
+    result = {"account": me["login"], "mode": "dry-run", **audit_offers(load_preview(args.preview), tokens["access_token"])}
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()

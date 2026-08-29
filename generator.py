@@ -16,6 +16,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 DEFAULT_LIMIT = 44_000
+DEFAULT_ALLEGRO_MARKUP = Decimal("10")
 PROTECTED_PREFIXES = (
     "Opony",
     "Dętki, Tubliss, mousse",
@@ -150,6 +151,88 @@ def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal, category_map: dic
     return item
 
 
+def valid_ean(value: str) -> bool:
+    return value.isdigit() and 8 <= len(value) <= 14
+
+
+def allegro_price(price_pln: Decimal, pln_per_eur: Decimal, markup_percent: Decimal) -> Decimal:
+    multiplier = Decimal("1") + markup_percent / Decimal("100")
+    return (price_pln / pln_per_eur * multiplier).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+
+def write_allegro_preview(
+    source: Path,
+    destination: Path,
+    pln_per_eur: Decimal,
+    markup_percent: Decimal = DEFAULT_ALLEGRO_MARKUP,
+) -> dict[str, int]:
+    """Write a complete, API-neutral Allegro synchronization preview.
+
+    Zero-stock rows are intentionally retained so a later API synchronizer can
+    pause an existing offer and restore it when supplier stock returns.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    counts = {"products": 0, "in_stock": 0, "new_offer_ready": 0, "needs_data": 0}
+    fields = (
+        "supplier_id", "sku", "ean", "name", "brand", "source_category",
+        "price_pln", "price_eur_plus_10pct", "quantity", "image_urls",
+        "gpsr", "new_offer_status", "blocking_reason",
+    )
+    with temporary.open("w", encoding="utf-8", newline="") as output:
+        writer = csv.DictWriter(output, fieldnames=fields)
+        writer.writeheader()
+        for _, product in ET.iterparse(source, events=("end",)):
+            if product.tag != "product":
+                continue
+            supplier_id = product.attrib.get("id", "").strip()
+            sku = (
+                (product.findtext("kod") or "").strip()
+                or (product.findtext("symbol") or "").strip()
+                or supplier_id
+            )
+            ean = (product.findtext("ean") or "").strip()
+            price_pln = decimal(product.findtext("price"))
+            quantity = max(Decimal("0"), decimal(product.findtext("quantity")))
+            images = [node.attrib.get("url", "").strip() for node in product.findall("./imgs/i")]
+            images = [url for url in images if url]
+            blockers = []
+            if not supplier_id or not sku:
+                blockers.append("missing_sku")
+            if not valid_ean(ean):
+                blockers.append("missing_or_invalid_ean")
+            if price_pln <= 0:
+                blockers.append("invalid_price")
+            if not images:
+                blockers.append("missing_image")
+            status = "ready" if not blockers else "needs_data"
+            writer.writerow(
+                {
+                    "supplier_id": supplier_id,
+                    "sku": sku,
+                    "ean": ean,
+                    "name": (product.findtext("name") or "").strip()[:250],
+                    "brand": (product.findtext("marka") or "").strip()[:200],
+                    "source_category": (product.findtext("category") or "").strip(),
+                    "price_pln": f"{price_pln:.2f}",
+                    "price_eur_plus_10pct": f"{allegro_price(price_pln, pln_per_eur, markup_percent):.2f}" if price_pln > 0 else "",
+                    "quantity": str(quantity.quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
+                    "image_urls": "|".join(images),
+                    "gpsr": (product.findtext("gpsr") or "").strip(),
+                    "new_offer_status": status,
+                    "blocking_reason": "|".join(blockers),
+                }
+            )
+            counts["products"] += 1
+            counts["in_stock"] += int(quantity > 0)
+            counts["new_offer_ready" if status == "ready" else "needs_data"] += 1
+            product.clear()
+    temporary.replace(destination)
+    return counts
+
+
 def write_feed(
     source: Path, destination: Path, selected: set[str], pln_per_eur: Decimal,
     category_map: dict[str, str] | None = None,
@@ -215,6 +298,8 @@ def main() -> None:
     parser.add_argument("--status", type=Path, default=Path("public/status.json"))
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--category-map", type=Path, default=Path("translations/categories-sk.csv"))
+    parser.add_argument("--allegro-preview", type=Path, default=Path("build/allegro-preview.csv"))
+    parser.add_argument("--allegro-markup", type=Decimal, default=DEFAULT_ALLEGRO_MARKUP)
     args = parser.parse_args()
     if args.limit < 1:
         raise SystemExit("--limit must be positive")
@@ -231,6 +316,9 @@ def main() -> None:
         selected, in_stock = choose(source, args.limit)
         rate = exchange_rate()
         count = write_feed(source, args.output, selected, rate, load_category_map(args.category_map))
+        allegro_counts = write_allegro_preview(
+            source, args.allegro_preview, rate, args.allegro_markup
+        )
 
     args.status.parent.mkdir(parents=True, exist_ok=True)
     args.status.write_text(
@@ -242,6 +330,11 @@ def main() -> None:
                 "limit": args.limit,
                 "language": "pl",
                 "pln_per_eur": str(rate),
+                "allegro_preview": {
+                    **allegro_counts,
+                    "markup_percent": str(args.allegro_markup),
+                    "live_sync": False,
+                },
             },
             ensure_ascii=False,
             indent=2,

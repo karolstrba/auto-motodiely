@@ -1,0 +1,28 @@
+name: Allegro read-only audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Build current preview
+        env:
+          SOURCE_FEED_URL: ${{ secrets.SOURCE_FEED_URL }}
+        run: python generator.py --limit 44000 --allegro-markup 10
+      - name: Audit Allegro offers without changes
+        env:
+          ALLEGRO_CLIENT_ID: ${{ secrets.ALLEGRO_CLIENT_ID }}
+          ALLEGRO_CLIENT_SECRET: ${{ secrets.ALLEGRO_CLIENT_SECRET }}
+          ALLEGRO_REFRESH_TOKEN: ${{ secrets.ALLEGRO_REFRESH_TOKEN }}
+        run: python allegro_sync.py

@@ -37,7 +37,7 @@ jobs:
       - name: Build feed
         env:
           SOURCE_FEED_URL: ${{ secrets.SOURCE_FEED_URL }}
-        run: python generator.py --limit 44000
+        run: python generator.py --limit 44000 --allegro-markup 10
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

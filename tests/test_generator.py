@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from decimal import Decimal
 from pathlib import Path
 
-from generator import choose, write_feed
+from generator import allegro_price, choose, write_allegro_preview, write_feed
 
 
 XML = b'''<?xml version="1.0" encoding="utf-8"?>
@@ -31,6 +31,19 @@ class GeneratorTest(unittest.TestCase):
             codes = {node.findtext("CODE") for node in root.findall("SHOPITEM")}
             self.assertEqual(codes, {"tyre", "core"})
             self.assertTrue(all(node.find("STOCK/AMOUNT") is not None for node in root))
+
+    def test_allegro_preview_keeps_zero_stock_and_adds_ten_percent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.xml"
+            output = Path(directory) / "allegro.csv"
+            source.write_bytes(XML)
+            counts = write_allegro_preview(source, output, Decimal("4"))
+            rows = output.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(counts["products"], 4)
+            self.assertEqual(counts["in_stock"], 3)
+            self.assertEqual(len(rows), 5)
+            self.assertIn("empty", rows[-1])
+            self.assertEqual(allegro_price(Decimal("100"), Decimal("4"), Decimal("10")), Decimal("27.50"))
 
 
 if __name__ == "__main__":
