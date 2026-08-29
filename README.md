@@ -29,6 +29,11 @@ neskôr automaticky pozastaviť a po naskladnení obnoviť.
 
 Týmto sa nemení cena ani štruktúra existujúceho `feed-pl.xml` pre Shoptet.
 
+Workflow `Allegro read-only audit` používa secrets `ALLEGRO_CLIENT_ID`,
+`ALLEGRO_CLIENT_SECRET` a `ALLEGRO_REFRESH_TOKEN`. Overí, že token patrí účtu
+`Automotodiely`, porovná ponuky podľa externého SKU a iba vypíše počty zmien.
+Kód zámerne neobsahuje žiadny zápisový API request.
+
 ## Bezpečné nastavenie
 
 Dodávateľská URL obsahuje súkromný hash a nesmie byť v repozitári. V GitHub nastaveniach vytvorte Actions secret `SOURCE_FEED_URL` s celou adresou zdrojového XML.
