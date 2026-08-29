@@ -14,7 +14,7 @@ Bezplatný generátor dynamického XML feedu pre AMDPRO.
 
 ## Allegro Automotodiely – bezpečný náhľad
 
-Pri každom spustení vznikne aj privátny Actions artefakt `allegro-preview`.
+Pri každom spustení vznikne dočasný `build/allegro-preview.csv` iba na runneri.
 Je oddelený od verejného Shoptet
 feedu a obsahuje všetky produkty vrátane nulového skladu, aby sa dali ponuky
 neskôr automaticky pozastaviť a po naskladnení obnoviť.
@@ -24,7 +24,8 @@ neskôr automaticky pozastaviť a po naskladnení obnoviť.
 - nové produkty sa označia `ready` iba pri platnom EAN, cene a obrázku,
 - chýbajúce údaje sú uvedené v stĺpci `blocking_reason`,
 - súbor sám nič nemení na Allegre; živá API synchronizácia zostáva vypnutá.
-- náhľad sa nepublikuje cez GitHub Pages a po 7 dňoch sa automaticky odstráni.
+- náhľad sa nepublikuje cez GitHub Pages ani neukladá ako verejný artefakt;
+  po skončení workflowu zanikne spolu s dočasným runnerom.
 
 Týmto sa nemení cena ani štruktúra existujúceho `feed-pl.xml` pre Shoptet.
 
