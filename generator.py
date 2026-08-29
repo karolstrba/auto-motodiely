@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import heapq
 import json
 import os
@@ -102,7 +103,14 @@ def add_text(parent: ET.Element, tag: str, value: str | None) -> ET.Element | No
     return child
 
 
-def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal) -> ET.Element:
+def load_category_map(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {row["pl_category"].strip(): row["sk_category"].strip() for row in csv.DictReader(handle) if row.get("pl_category") and row.get("sk_category")}
+
+
+def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal, category_map: dict[str, str]) -> ET.Element:
     item = ET.Element("SHOPITEM")
     name = (product.findtext("name") or "").strip()[:250]
     code = (
@@ -120,7 +128,8 @@ def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal) -> ET.Element:
     add_text(item, "UNIT", "ks")
     if category:
         categories = ET.SubElement(item, "CATEGORIES")
-        add_text(categories, "CATEGORY", category.replace(" / ", " > ")[:255])
+        source_category = category.replace(" / ", " > ")
+        add_text(categories, "CATEGORY", category_map.get(source_category, source_category)[:255])
     image_urls = [node.attrib.get("url", "").strip() for node in product.findall("./imgs/i")]
     if any(image_urls):
         images = ET.SubElement(item, "IMAGES")
@@ -142,8 +151,10 @@ def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal) -> ET.Element:
 
 
 def write_feed(
-    source: Path, destination: Path, selected: set[str], pln_per_eur: Decimal
+    source: Path, destination: Path, selected: set[str], pln_per_eur: Decimal,
+    category_map: dict[str, str] | None = None,
 ) -> int:
+    category_map = category_map or {}
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")
     count = 0
@@ -153,7 +164,7 @@ def write_feed(
             if product.tag != "product":
                 continue
             if product.attrib.get("id", "") in selected:
-                output.write(ET.tostring(to_shoptet_item(product, pln_per_eur), encoding="utf-8"))
+                output.write(ET.tostring(to_shoptet_item(product, pln_per_eur, category_map), encoding="utf-8"))
                 output.write(b"\n")
                 count += 1
             product.clear()
@@ -203,6 +214,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("public/feed-pl.xml"))
     parser.add_argument("--status", type=Path, default=Path("public/status.json"))
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    parser.add_argument("--category-map", type=Path, default=Path("translations/categories-sk.csv"))
     args = parser.parse_args()
     if args.limit < 1:
         raise SystemExit("--limit must be positive")
@@ -218,7 +230,7 @@ def main() -> None:
 
         selected, in_stock = choose(source, args.limit)
         rate = exchange_rate()
-        count = write_feed(source, args.output, selected, rate)
+        count = write_feed(source, args.output, selected, rate, load_category_map(args.category_map))
 
     args.status.parent.mkdir(parents=True, exist_ok=True)
     args.status.write_text(
