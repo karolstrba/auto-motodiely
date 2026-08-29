@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from decimal import Decimal
 from pathlib import Path
 
 from generator import choose, write_feed
@@ -24,9 +25,12 @@ class GeneratorTest(unittest.TestCase):
             selected, in_stock = choose(source, 2)
             self.assertEqual(in_stock, 3)
             self.assertEqual(selected, {"tyre", "core"})
-            self.assertEqual(write_feed(source, output, selected), 2)
-            ids = {node.attrib["id"] for node in ET.parse(output).getroot()}
-            self.assertEqual(ids, selected)
+            self.assertEqual(write_feed(source, output, selected, Decimal("4")), 2)
+            root = ET.parse(output).getroot()
+            self.assertEqual(root.tag, "SHOP")
+            codes = {node.findtext("CODE") for node in root.findall("SHOPITEM")}
+            self.assertEqual(codes, {"tyre", "core"})
+            self.assertTrue(all(node.find("STOCK/AMOUNT") is not None for node in root))
 
 
 if __name__ == "__main__":
