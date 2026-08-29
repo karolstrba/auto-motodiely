@@ -7,11 +7,11 @@ import argparse
 import heapq
 import json
 import os
-import re
 import tempfile
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 DEFAULT_LIMIT = 44_000
@@ -86,27 +86,107 @@ def choose(source: Path, limit: int) -> tuple[set[str], int]:
     return {product_id for _, product_id in selected}, in_stock
 
 
-def write_feed(source: Path, destination: Path, selected: set[str]) -> int:
-    product_pattern = re.compile(
-        rb"<product\s+id=([\"'])([^\"']+)\1>.*?</product>\s*", re.S
+def decimal(value: str | None) -> Decimal:
+    try:
+        return Decimal((value or "0").strip().replace(",", "."))
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def add_text(parent: ET.Element, tag: str, value: str | None) -> ET.Element | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    child = ET.SubElement(parent, tag)
+    child.text = value
+    return child
+
+
+def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal) -> ET.Element:
+    item = ET.Element("SHOPITEM")
+    name = (product.findtext("name") or "").strip()[:250]
+    code = (
+        (product.findtext("kod") or "").strip()
+        or (product.findtext("symbol") or "").strip()
+        or product.attrib.get("id", "").strip()
     )
-    data = source.read_bytes()
+    category = (product.findtext("category") or "").strip()
+    price_pln = decimal(product.findtext("price"))
+    quantity = decimal(product.findtext("quantity"))
+
+    add_text(item, "NAME", name or code)
+    add_text(item, "MANUFACTURER", (product.findtext("marka") or "")[:200])
+    add_text(item, "ITEM_TYPE", "product")
+    add_text(item, "UNIT", "ks")
+    if category:
+        categories = ET.SubElement(item, "CATEGORIES")
+        add_text(categories, "CATEGORY", category.replace(" / ", " > ")[:255])
+    image_urls = [node.attrib.get("url", "").strip() for node in product.findall("./imgs/i")]
+    if any(image_urls):
+        images = ET.SubElement(item, "IMAGES")
+        for url in image_urls:
+            add_text(images, "IMAGE", url)
+
+    add_text(item, "CODE", code[:64])
+    ean = (product.findtext("ean") or "").strip()
+    if ean.isdigit() and 8 <= len(ean) <= 14:
+        add_text(item, "EAN", ean)
+    price_eur = (price_pln / pln_per_eur).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    add_text(item, "PRICE_VAT", f"{price_eur:.2f}")
+    stock = ET.SubElement(item, "STOCK")
+    add_text(stock, "AMOUNT", str(quantity.normalize()))
+    add_text(item, "CURRENCY", "EUR")
+    add_text(item, "AVAILABILITY_IN_STOCK", "Skladom")
+    add_text(item, "AVAILABILITY_OUT_OF_STOCK", "Momentálne nedostupné")
+    return item
+
+
+def write_feed(
+    source: Path, destination: Path, selected: set[str], pln_per_eur: Decimal
+) -> int:
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")
     count = 0
     with temporary.open("wb") as output:
-        output.write(b'<?xml version="1.0" encoding="utf-8"?>\n<xml>\n')
-        for match in product_pattern.finditer(data):
-            if match.group(2).decode("utf-8") in selected:
-                output.write(match.group(0))
+        output.write(b'<?xml version="1.0" encoding="utf-8"?>\n<SHOP>\n')
+        for _, product in ET.iterparse(source, events=("end",)):
+            if product.tag != "product":
+                continue
+            if product.attrib.get("id", "") in selected:
+                output.write(ET.tostring(to_shoptet_item(product, pln_per_eur), encoding="utf-8"))
+                output.write(b"\n")
                 count += 1
-        output.write(b"</xml>\n")
+            product.clear()
+        output.write(b"</SHOP>\n")
     if count != len(selected):
         temporary.unlink(missing_ok=True)
         raise RuntimeError(f"Selected {len(selected)} products, wrote {count}")
     ET.parse(temporary)
     temporary.replace(destination)
     return count
+
+
+def exchange_rate() -> Decimal:
+    override = os.environ.get("PLN_PER_EUR")
+    if override:
+        rate = decimal(override)
+        if rate > 0:
+            return rate
+    try:
+        request = urllib.request.Request(
+            "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
+            headers={"User-Agent": "AMDPRO-feed/1.0"},
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            root = ET.fromstring(response.read())
+        for node in root.iter():
+            if node.attrib.get("currency") == "PLN":
+                rate = decimal(node.attrib.get("rate"))
+                if rate > 0:
+                    return rate
+    except Exception as exc:
+        print(f"ECB exchange-rate lookup failed, using fallback: {exc}")
+    return Decimal("4.3365")
 
 
 def download(url: str, destination: Path) -> None:
@@ -137,7 +217,8 @@ def main() -> None:
             download(url, source)
 
         selected, in_stock = choose(source, args.limit)
-        count = write_feed(source, args.output, selected)
+        rate = exchange_rate()
+        count = write_feed(source, args.output, selected, rate)
 
     args.status.parent.mkdir(parents=True, exist_ok=True)
     args.status.write_text(
@@ -148,6 +229,7 @@ def main() -> None:
                 "in_stock_source_products": in_stock,
                 "limit": args.limit,
                 "language": "pl",
+                "pln_per_eur": str(rate),
             },
             ensure_ascii=False,
             indent=2,
