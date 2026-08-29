@@ -12,6 +12,22 @@ Bezplatný generátor dynamického XML feedu pre AMDPRO.
 - publikuje platné XML cez GitHub Pages,
 - spúšťa sa automaticky každých 6 hodín.
 
+## Allegro Automotodiely – bezpečný náhľad
+
+Pri každom spustení vznikne aj privátny Actions artefakt `allegro-preview`.
+Je oddelený od verejného Shoptet
+feedu a obsahuje všetky produkty vrátane nulového skladu, aby sa dali ponuky
+neskôr automaticky pozastaviť a po naskladnení obnoviť.
+
+- cena sa prepočíta z PLN na EUR aktuálnym kurzom ECB a zvýši o 10 %,
+- sklad sa kopíruje zo zdrojového XML,
+- nové produkty sa označia `ready` iba pri platnom EAN, cene a obrázku,
+- chýbajúce údaje sú uvedené v stĺpci `blocking_reason`,
+- súbor sám nič nemení na Allegre; živá API synchronizácia zostáva vypnutá.
+- náhľad sa nepublikuje cez GitHub Pages a po 7 dňoch sa automaticky odstráni.
+
+Týmto sa nemení cena ani štruktúra existujúceho `feed-pl.xml` pre Shoptet.
+
 ## Bezpečné nastavenie
 
 Dodávateľská URL obsahuje súkromný hash a nesmie byť v repozitári. V GitHub nastaveniach vytvorte Actions secret `SOURCE_FEED_URL` s celou adresou zdrojového XML.
