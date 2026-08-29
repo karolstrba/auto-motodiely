@@ -2,6 +2,13 @@ name: Build AMDPRO feed
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - generator.py
+      - tests/**
+      - .github/workflows/build-feed.yml
   schedule:
     - cron: "17 */6 * * *"
 
