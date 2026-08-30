@@ -55,6 +55,18 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
         raise SystemExit(f"Allegro OAuth error: {error_name}: {description}") from None
 
 
+def safe_token_metadata(access_token: str) -> dict:
+    """Decode only non-secret JWT claims for troubleshooting."""
+    try:
+        payload_part = access_token.split(".")[1]
+        padding = "=" * (-len(payload_part) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_part + padding))
+    except (IndexError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        return {"format": "not-a-jwt"}
+    allowed = ("iss", "aud", "exp", "iat", "client_id", "scope")
+    return {key: payload[key] for key in allowed if key in payload}
+
+
 def api_get(path: str, access_token: str) -> dict:
     request = urllib.request.Request(
         API + path,
@@ -107,6 +119,7 @@ def main() -> None:
     if missing:
         raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
     tokens = refresh_access_token(required["ALLEGRO_CLIENT_ID"], required["ALLEGRO_CLIENT_SECRET"], required["ALLEGRO_REFRESH_TOKEN"])
+    print("Token metadata:", json.dumps(safe_token_metadata(tokens["access_token"]), sort_keys=True))
     try:
         me = api_get("/me", tokens["access_token"])
     except urllib.error.HTTPError as error:
