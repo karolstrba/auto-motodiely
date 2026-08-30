@@ -62,7 +62,13 @@ def safe_token_metadata(access_token: str) -> dict:
         padding = "=" * (-len(payload_part) % 4)
         payload = json.loads(base64.urlsafe_b64decode(payload_part + padding))
     except (IndexError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-        return {"format": "not-a-jwt"}
+        return {
+            "format": "not-a-jwt",
+            "length": len(access_token),
+            "segments": access_token.count(".") + 1,
+            "starts_with_jwt_header": access_token.startswith("eyJ"),
+            "contains_whitespace": any(character.isspace() for character in access_token),
+        }
     allowed = ("iss", "aud", "exp", "iat", "client_id", "scope")
     return {key: payload[key] for key in allowed if key in payload}
 
