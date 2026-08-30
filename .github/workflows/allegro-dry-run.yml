@@ -8,6 +8,11 @@ on:
         required: true
         type: boolean
         default: false
+      create_draft:
+        description: "Create exactly one inactive draft for a missing feed product"
+        required: true
+        type: boolean
+        default: false
       limit:
         description: "Maximum live offers (1-10)"
         required: true
@@ -19,7 +24,7 @@ on:
           - "10"
         default: "1"
       confirmation:
-        description: "For live mode type AMDPRO-10-PERCENT"
+        description: "Type AMDPRO-10-PERCENT for updates or AMDPRO-CREATE-DRAFT for one inactive draft"
         required: false
         type: string
 
@@ -49,4 +54,5 @@ jobs:
           python allegro_sync.py
           --limit "${{ inputs.limit }}"
           ${{ inputs.apply && '--apply' || '' }}
+          ${{ inputs.create_draft && '--create-draft' || '' }}
           --confirm "${{ inputs.confirmation }}"
