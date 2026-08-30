@@ -15,6 +15,7 @@ from pathlib import Path
 API = "https://api.allegro.pl"
 TOKEN_URL = "https://allegro.pl/auth/oauth/token"
 ACCEPT = "application/vnd.allegro.public.v1+json"
+USER_AGENT = "AMDPRO-Allegro-Sync/1.0 (+https://amdpro.eu)"
 
 
 def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
@@ -25,7 +26,11 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
     request = urllib.request.Request(
         TOKEN_URL,
         data=data,
-        headers={"Authorization": f"Basic {credentials}", "Content-Type": "application/x-www-form-urlencoded"},
+        headers={
+            "Authorization": f"Basic {credentials}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": USER_AGENT,
+        },
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         return json.load(response)
@@ -34,7 +39,11 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
 def api_get(path: str, access_token: str) -> dict:
     request = urllib.request.Request(
         API + path,
-        headers={"Authorization": f"Bearer {access_token}", "Accept": ACCEPT},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": ACCEPT,
+            "User-Agent": USER_AGENT,
+        },
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         return json.load(response)
