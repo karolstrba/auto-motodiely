@@ -164,7 +164,15 @@ def find_unique_catalog_product(row: dict[str, str], access_token: str) -> str:
     query = urllib.parse.urlencode(
         {"phrase": row.get("ean", ""), "language": "pl-PL", "mode": "GTIN"}
     )
-    products = api_get(f"/sale/products?{query}", access_token).get("products", [])
+    try:
+        products = api_get(f"/sale/products?{query}", access_token).get("products", [])
+    except urllib.error.HTTPError as error:
+        # Allegro returns 404 when no catalog product exists for some valid GTINs.
+        # Treat that exactly like an empty catalog result so a single feed item
+        # cannot stop publication of every later item.
+        if error.code == 404:
+            return ""
+        raise
     return str(products[0].get("id") or "") if len(products) == 1 else ""
 
 
@@ -436,7 +444,7 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
             if len(result["error_samples"]) < 20:
                 result["error_samples"].append({"sku": sku, "error": str(error)[:1000]})
         if result["created"] and result["created"] % 25 == 0:
-            print("Batch progress:", json.dumps({key: result[key] for key in ("eligible_missing", "created", "activated", "still_inactive", "skipped_catalog", "errors")}))
+            print("Batch progress:", json.dumps({key: result[key] for key in ("eligible_missing", "created", "activated", "still_inactive", "skipped_catalog", "errors")}), flush=True)
     return result
 
 
