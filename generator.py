@@ -178,7 +178,7 @@ def write_allegro_preview(
     counts = {"products": 0, "in_stock": 0, "new_offer_ready": 0, "needs_data": 0}
     fields = (
         "supplier_id", "sku", "ean", "name", "brand", "source_category",
-        "price_pln", "price_eur_plus_10pct", "quantity", "image_urls",
+        "price_pln", "price_pln_plus_10pct", "price_eur_plus_10pct", "quantity", "image_urls",
         "gpsr", "new_offer_status", "blocking_reason",
     )
     with temporary.open("w", encoding="utf-8", newline="") as output:
@@ -217,6 +217,7 @@ def write_allegro_preview(
                     "brand": (product.findtext("marka") or "").strip()[:200],
                     "source_category": (product.findtext("category") or "").strip(),
                     "price_pln": f"{price_pln:.2f}",
+                    "price_pln_plus_10pct": f"{allegro_price(price_pln, Decimal('1'), markup_percent):.2f}" if price_pln > 0 else "",
                     "price_eur_plus_10pct": f"{allegro_price(price_pln, pln_per_eur, markup_percent):.2f}" if price_pln > 0 else "",
                     "quantity": str(quantity.quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
                     "image_urls": "|".join(images),
