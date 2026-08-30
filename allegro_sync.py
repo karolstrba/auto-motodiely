@@ -13,6 +13,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 API = "https://api.allegro.pl"
@@ -209,8 +210,17 @@ def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> d
             sku = ((offer.get("external") or {}).get("id") or "").strip()
             if sku:
                 matched_skus.add(sku)
-            if ((offer.get("publication") or {}).get("status")) == "ACTIVE":
+            status = (offer.get("publication") or {}).get("status")
+            if status == "ACTIVE":
                 active_offers.append(offer)
+            elif status == "INACTIVE" and sku in preview:
+                row = preview[sku]
+                try:
+                    quantity = int(row.get("quantity", "0") or "0")
+                except ValueError:
+                    quantity = 0
+                if row.get("new_offer_status") == "ready" and quantity > 0:
+                    inactive_feed_offers.append((str(offer.get("id") or ""), sku))
             currency = str((((offer.get("sellingMode") or {}).get("price") or {}).get("currency")) or "")
             if currency:
                 currencies[currency] = currencies.get(currency, 0) + 1
@@ -383,6 +393,7 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
     global _ACTIVE_OFFERS_CACHE
     matched_skus: set[str] = set()
     active_offers: list[dict] = []
+    inactive_feed_offers: list[tuple[str, str]] = []
     offset = 0
     while True:
         page = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
@@ -407,7 +418,54 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
         "errors": 0,
         "error_samples": [],
         "offer_ids": [],
+        "inactive_found": len(inactive_feed_offers),
+        "reactivation_submitted": 0,
+        "reactivation_errors": 0,
     }
+
+    if inactive_feed_offers:
+        # Cache the account presets before starting workers. Each worker then
+        # handles one independent offer, while Allegro rate limiting remains
+        # bounded by the small worker pool.
+        find_account_template(access_token)
+
+        def reactivate(item: tuple[str, str]) -> tuple[str, dict]:
+            offer_id, sku = item
+            return offer_id, activate_inactive_offer(
+                offer_id, access_token, expected_sku=sku, wait_for_active=False
+            )
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(reactivate, item): item for item in inactive_feed_offers}
+            for completed, future in enumerate(as_completed(futures), start=1):
+                offer_id, sku = futures[future]
+                try:
+                    _, activation = future.result()
+                    result["reactivation_submitted"] += 1
+                    if activation["status"] == "ACTIVE":
+                        result["activated"] += 1
+                    else:
+                        result["still_inactive"] += 1
+                except Exception as error:
+                    result["reactivation_errors"] += 1
+                    result["errors"] += 1
+                    if len(result["error_samples"]) < 20:
+                        result["error_samples"].append(
+                            {"sku": sku, "offer_id": offer_id, "error": str(error)[:1000]}
+                        )
+                if completed % 50 == 0:
+                    print(
+                        "Reactivation progress:",
+                        json.dumps({
+                            key: result[key]
+                            for key in (
+                                "inactive_found", "reactivation_submitted",
+                                "reactivation_errors", "activated", "still_inactive",
+                            )
+                        }),
+                        flush=True,
+                    )
+
     for sku, row in preview.items():
         if sku in matched_skus:
             continue
