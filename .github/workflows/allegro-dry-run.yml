@@ -2,6 +2,26 @@ name: Allegro read-only audit
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply a live sample update"
+        required: true
+        type: boolean
+        default: false
+      limit:
+        description: "Maximum live offers (1-10)"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "3"
+          - "5"
+          - "10"
+        default: "1"
+      confirmation:
+        description: "For live mode type AMDPRO-10-PERCENT"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -25,4 +45,8 @@ jobs:
           ALLEGRO_CLIENT_ID: ${{ secrets.ALLEGRO_CLIENT_ID }}
           ALLEGRO_CLIENT_SECRET: ${{ secrets.ALLEGRO_CLIENT_SECRET }}
           ALLEGRO_REFRESH_TOKEN: ${{ secrets.ALLEGRO_REFRESH_TOKEN }}
-        run: python allegro_sync.py
+        run: >-
+          python allegro_sync.py
+          --limit "${{ inputs.limit }}"
+          ${{ inputs.apply && '--apply' || '' }}
+          --confirm "${{ inputs.confirmation }}"

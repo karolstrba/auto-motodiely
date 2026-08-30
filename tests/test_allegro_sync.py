@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from allegro_sync import USER_AGENT, load_preview, target_price
+from allegro_sync import USER_AGENT, build_offer_patch, load_preview, target_price
 
 
 class AllegroSyncTest(unittest.TestCase):
@@ -15,6 +15,28 @@ class AllegroSyncTest(unittest.TestCase):
         self.assertEqual(target_price(row, "PLN"), "110.00")
         self.assertEqual(target_price(row, "EUR"), "25.30")
         self.assertEqual(target_price(row, "USD"), "")
+
+    def test_live_patch_changes_only_price_and_positive_stock(self):
+        offer = {
+            "publication": {"status": "ACTIVE"},
+            "sellingMode": {"price": {"amount": "20.00", "currency": "EUR"}},
+            "stock": {"available": 1, "unit": "UNIT"},
+        }
+        row = {"price_eur_plus_10pct": "25.30", "quantity": "4"}
+        self.assertEqual(build_offer_patch(offer, row), {
+            "sellingMode": {"price": {"amount": "25.30", "currency": "EUR"}},
+            "stock": {"available": 4, "unit": "UNIT"},
+        })
+
+    def test_live_patch_skips_zero_stock_and_ended_offers(self):
+        offer = {
+            "publication": {"status": "ACTIVE"},
+            "sellingMode": {"price": {"amount": "20.00", "currency": "EUR"}},
+            "stock": {"available": 1, "unit": "UNIT"},
+        }
+        self.assertEqual(build_offer_patch(offer, {"price_eur_plus_10pct": "25.30", "quantity": "0"}), {})
+        offer["publication"]["status"] = "ENDED"
+        self.assertEqual(build_offer_patch(offer, {"price_eur_plus_10pct": "25.30", "quantity": "4"}), {})
 
     def test_load_preview_is_keyed_by_sku(self):
         with tempfile.TemporaryDirectory() as directory:
