@@ -89,6 +89,18 @@ def api_get(path: str, access_token: str) -> dict:
         return json.load(response)
 
 
+def api_patch(path: str, access_token: str, payload: dict) -> int:
+    request = urllib.request.Request(
+        API + path,
+        data=json.dumps(payload).encode("utf-8"),
+        method="PATCH",
+        headers={"Authorization": f"Bearer {access_token}", "Accept": ACCEPT, "Content-Type": ACCEPT, "User-Agent": USER_AGENT},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        response.read()
+        return response.status
+
+
 def load_preview(path: Path) -> dict[str, dict[str, str]]:
     with path.open(encoding="utf-8", newline="") as handle:
         return {row["sku"]: row for row in csv.DictReader(handle) if row.get("sku")}
@@ -100,6 +112,52 @@ def target_price(row: dict[str, str], currency: str) -> str:
     if currency == "EUR":
         return row.get("price_eur_plus_10pct", "")
     return ""
+
+
+def build_offer_patch(offer: dict, row: dict[str, str]) -> dict:
+    if str((offer.get("publication") or {}).get("status") or "") != "ACTIVE":
+        return {}
+    price = ((offer.get("sellingMode") or {}).get("price") or {})
+    currency = str(price.get("currency") or "")
+    desired_price = target_price(row, currency)
+    try:
+        desired_stock = int(row.get("quantity", "0"))
+    except ValueError:
+        return {}
+    if not desired_price or desired_stock <= 0:
+        return {}
+    patch = {}
+    if str(price.get("amount") or "") != desired_price:
+        patch["sellingMode"] = {"price": {"amount": desired_price, "currency": currency}}
+    stock = offer.get("stock") or {}
+    if str(stock.get("available") or "") != str(desired_stock):
+        patch["stock"] = {"available": desired_stock, "unit": str(stock.get("unit") or "UNIT")}
+    return patch
+
+
+def apply_sample(preview: dict[str, dict[str, str]], access_token: str, limit: int) -> dict:
+    result = {"requested_limit": limit, "updated": 0, "updated_offer_ids": []}
+    offset = 0
+    while result["updated"] < limit:
+        payload = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
+        offers = payload.get("offers", [])
+        for offer in offers:
+            sku = ((offer.get("external") or {}).get("id") or "").strip()
+            row = preview.get(sku)
+            patch = build_offer_patch(offer, row) if row else {}
+            if not patch:
+                continue
+            status = api_patch(f"/sale/product-offers/{offer['id']}", access_token, patch)
+            if status not in (200, 202):
+                raise RuntimeError(f"Unexpected Allegro PATCH status: {status}")
+            result["updated"] += 1
+            result["updated_offer_ids"].append(str(offer["id"]))
+            if result["updated"] >= limit:
+                break
+        if len(offers) < 1000:
+            break
+        offset += len(offers)
+    return result
 
 
 def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict:
@@ -148,7 +206,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview", type=Path, default=Path("build/allegro-preview.csv"))
     parser.add_argument("--output", type=Path, default=Path("build/allegro-audit.json"))
+    parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--limit", type=int, default=1)
+    parser.add_argument("--confirm", default="")
     args = parser.parse_args()
+    if args.limit < 1 or args.limit > 10:
+        raise SystemExit("--limit must be between 1 and 10")
+    if args.apply and args.confirm != "AMDPRO-10-PERCENT":
+        raise SystemExit("Live synchronization requires --confirm AMDPRO-10-PERCENT")
     required = {name: os.environ.get(name, "") for name in ("ALLEGRO_CLIENT_ID", "ALLEGRO_CLIENT_SECRET", "ALLEGRO_REFRESH_TOKEN")}
     missing = [name for name, value in required.items() if not value]
     if missing:
@@ -165,7 +230,11 @@ def main() -> None:
         account = me.get("login", "unknown")
         if account != "Automotodiely":
             raise SystemExit(f"Wrong Allegro account: {account}")
-    result = {"account": account, "mode": "dry-run", **audit_offers(load_preview(args.preview), tokens["access_token"])}
+    preview = load_preview(args.preview)
+    result = {"account": account, "mode": "dry-run", **audit_offers(preview, tokens["access_token"])}
+    if args.apply:
+        result["mode"] = "live-sample"
+        result["live_sample"] = apply_sample(preview, tokens["access_token"], args.limit)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
