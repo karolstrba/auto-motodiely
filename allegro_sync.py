@@ -98,10 +98,17 @@ def main() -> None:
     if missing:
         raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
     tokens = refresh_access_token(required["ALLEGRO_CLIENT_ID"], required["ALLEGRO_CLIENT_SECRET"], required["ALLEGRO_REFRESH_TOKEN"])
-    me = api_get("/me", tokens["access_token"])
-    if me.get("login") != "Automotodiely":
-        raise SystemExit(f"Wrong Allegro account: {me.get('login', 'unknown')}")
-    result = {"account": me["login"], "mode": "dry-run", **audit_offers(load_preview(args.preview), tokens["access_token"])}
+    try:
+        me = api_get("/me", tokens["access_token"])
+    except urllib.error.HTTPError as error:
+        if error.code != 403:
+            raise
+        account = "profile-scope-not-granted"
+    else:
+        account = me.get("login", "unknown")
+        if account != "Automotodiely":
+            raise SystemExit(f"Wrong Allegro account: {account}")
+    result = {"account": account, "mode": "dry-run", **audit_offers(load_preview(args.preview), tokens["access_token"])}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
