@@ -268,12 +268,24 @@ def resolve_responsible_producer(draft: dict, access_token: str) -> dict:
         return {"type": "NAME", "name": suggested["name"]}
 
     brand = str(draft.get("name") or "").split(" ", 1)[0].casefold()
-    account_data = api_get("/sale/responsible-producers?limit=1000", access_token)
-    producers = account_data.get("responsibleProducers", account_data.get("producers", []))
-    matches = [item for item in producers if brand and brand in str(item.get("name") or "").casefold()]
-    if len(matches) == 1:
-        return {"type": "ID", "id": matches[0]["id"]}
-    raise SystemExit(f"No unique preset responsible producer found for brand {brand.upper()}")
+    offset = 0
+    while True:
+        page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
+        offers = page.get("offers", [])
+        for offer in offers:
+            if brand not in str(offer.get("name") or "").casefold():
+                continue
+            details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
+            for item in details.get("productSet") or []:
+                producer = item.get("responsibleProducer") or {}
+                if producer.get("id"):
+                    return {"type": "ID", "id": producer["id"]}
+                if producer.get("name"):
+                    return {"type": "NAME", "name": producer["name"]}
+        if len(offers) < 1000:
+            break
+        offset += len(offers)
+    raise SystemExit(f"No preset responsible producer found in an active {brand.upper()} offer")
 
 
 def activate_inactive_offer(offer_id: str, access_token: str) -> dict:
