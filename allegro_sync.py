@@ -19,6 +19,9 @@ API = "https://api.allegro.pl"
 TOKEN_URL = "https://allegro.pl/auth/oauth/token"
 ACCEPT = "application/vnd.allegro.public.v1+json"
 USER_AGENT = "AMDPRO-Allegro-Sync/1.0 (+https://amdpro.eu)"
+_ACCOUNT_TEMPLATE_CACHE: dict | None = None
+_ACTIVE_OFFERS_CACHE: list[dict] | None = None
+_PRODUCER_CACHE: dict[str, dict] = {}
 
 
 def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
@@ -198,6 +201,8 @@ def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> d
             sku = ((offer.get("external") or {}).get("id") or "").strip()
             if sku:
                 matched_skus.add(sku)
+            if ((offer.get("publication") or {}).get("status")) == "ACTIVE":
+                active_offers.append(offer)
             currency = str((((offer.get("sellingMode") or {}).get("price") or {}).get("currency")) or "")
             if currency:
                 currencies[currency] = currencies.get(currency, 0) + 1
@@ -238,6 +243,9 @@ def compact_reference(value: dict | None) -> dict:
 
 
 def find_account_template(access_token: str) -> dict:
+    global _ACCOUNT_TEMPLATE_CACHE
+    if _ACCOUNT_TEMPLATE_CACHE is not None:
+        return _ACCOUNT_TEMPLATE_CACHE
     offset = 0
     while True:
         page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
@@ -249,6 +257,7 @@ def find_account_template(access_token: str) -> dict:
             returns = compact_reference(services.get("returnPolicy"))
             complaints = compact_reference(services.get("impliedWarranty"))
             if shipping and returns and complaints and details.get("location"):
+                _ACCOUNT_TEMPLATE_CACHE = details
                 return details
         if len(offers) < 1000:
             break
@@ -268,25 +277,35 @@ def resolve_responsible_producer(draft: dict, access_token: str) -> dict:
     if suggested.get("name"):
         return {"type": "NAME", "name": suggested["name"]}
 
+    global _ACTIVE_OFFERS_CACHE
     brand = str(draft.get("name") or "").split(" ", 1)[0].casefold()
-    offset = 0
-    while True:
-        page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
-        offers = page.get("offers", [])
-        for offer in offers:
+    if brand in _PRODUCER_CACHE:
+        return _PRODUCER_CACHE[brand]
+    if _ACTIVE_OFFERS_CACHE is None:
+        _ACTIVE_OFFERS_CACHE = []
+        offset = 0
+        while True:
+            page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
+            offers = page.get("offers", [])
+            _ACTIVE_OFFERS_CACHE.extend(offers)
+            if len(offers) < 1000:
+                break
+            offset += len(offers)
+    for offer in _ACTIVE_OFFERS_CACHE:
             if brand not in str(offer.get("name") or "").casefold():
                 continue
             details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
             for item in details.get("productSet") or []:
                 producer = item.get("responsibleProducer") or {}
                 if producer.get("id"):
-                    return {"type": "ID", "id": producer["id"]}
+                    resolved = {"type": "ID", "id": producer["id"]}
+                    _PRODUCER_CACHE[brand] = resolved
+                    return resolved
                 if producer.get("name"):
-                    return {"type": "NAME", "name": producer["name"]}
-        if len(offers) < 1000:
-            break
-        offset += len(offers)
-    raise SystemExit(f"No preset responsible producer found in an active {brand.upper()} offer")
+                    resolved = {"type": "NAME", "name": producer["name"]}
+                    _PRODUCER_CACHE[brand] = resolved
+                    return resolved
+    raise RuntimeError(f"No preset responsible producer found in an active {brand.upper()} offer")
 
 
 def activate_inactive_offer(
@@ -351,7 +370,9 @@ def activate_inactive_offer(
 
 
 def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> dict:
+    global _ACTIVE_OFFERS_CACHE
     matched_skus: set[str] = set()
+    active_offers: list[dict] = []
     offset = 0
     while True:
         page = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
@@ -363,6 +384,7 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
         if len(offers) < 1000:
             break
         offset += len(offers)
+    _ACTIVE_OFFERS_CACHE = active_offers
 
     result = {
         "eligible_missing": 0,
