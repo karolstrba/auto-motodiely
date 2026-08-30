@@ -231,6 +231,105 @@ def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> d
     raise SystemExit("No in-stock, catalog-ready product missing on Allegro was found")
 
 
+def compact_reference(value: dict | None) -> dict:
+    value = value or {}
+    return {"id": value["id"]} if value.get("id") else ({"name": value["name"]} if value.get("name") else {})
+
+
+def find_account_template(access_token: str) -> dict:
+    offset = 0
+    while True:
+        page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
+        offers = page.get("offers", [])
+        for offer in offers:
+            details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
+            shipping = compact_reference((details.get("delivery") or {}).get("shippingRates"))
+            services = details.get("afterSalesServices") or {}
+            returns = compact_reference(services.get("returnPolicy"))
+            complaints = compact_reference(services.get("impliedWarranty"))
+            if shipping and returns and complaints and details.get("location"):
+                return details
+        if len(offers) < 1000:
+            break
+        offset += len(offers)
+    raise SystemExit("No active offer with preset shipping, returns and complaints was found")
+
+
+def resolve_responsible_producer(draft: dict, access_token: str) -> dict:
+    product = (((draft.get("productSet") or [{}])[0]).get("product") or {})
+    product_id = str(product.get("id") or "")
+    if not product_id:
+        raise SystemExit("Draft has no catalog product ID")
+    details = api_get(f"/sale/products/{product_id}?language=pl-PL", access_token)
+    suggested = ((details.get("productSafety") or {}).get("responsibleProducer") or {})
+    if suggested.get("id"):
+        return {"type": "ID", "id": suggested["id"]}
+    if suggested.get("name"):
+        return {"type": "NAME", "name": suggested["name"]}
+
+    brand = str(draft.get("name") or "").split(" ", 1)[0].casefold()
+    account_data = api_get("/sale/responsible-producers?limit=1000", access_token)
+    producers = account_data.get("responsibleProducers", account_data.get("producers", []))
+    matches = [item for item in producers if brand and brand in str(item.get("name") or "").casefold()]
+    if len(matches) == 1:
+        return {"type": "ID", "id": matches[0]["id"]}
+    raise SystemExit(f"No unique preset responsible producer found for brand {brand.upper()}")
+
+
+def activate_inactive_offer(offer_id: str, access_token: str) -> dict:
+    draft = api_get(f"/sale/product-offers/{offer_id}", access_token)
+    if str(draft.get("id") or "") != offer_id:
+        raise SystemExit("Allegro returned a different offer")
+    if ((draft.get("publication") or {}).get("status")) != "INACTIVE":
+        raise SystemExit("Only an INACTIVE draft can be activated by this mode")
+    if ((draft.get("external") or {}).get("id")) != "02SKITK":
+        raise SystemExit("Safety check failed: unexpected SKU for the first draft")
+
+    template = find_account_template(access_token)
+    services = template.get("afterSalesServices") or {}
+    source_item = (draft.get("productSet") or [{}])[0]
+    product_id = str((source_item.get("product") or {}).get("id") or "")
+    product_item = {
+        "product": {"id": product_id},
+        "quantity": source_item.get("quantity") or {"value": 1},
+        "responsibleProducer": resolve_responsible_producer(draft, access_token),
+    }
+    for key in ("responsiblePerson", "safetyInformation"):
+        if source_item.get(key):
+            product_item[key] = source_item[key]
+
+    payload = {
+        "productSet": [product_item],
+        "delivery": {
+            "shippingRates": compact_reference((template.get("delivery") or {}).get("shippingRates")),
+            "handlingTime": "P3D",
+        },
+        "afterSalesServices": {
+            "returnPolicy": compact_reference(services.get("returnPolicy")),
+            "impliedWarranty": compact_reference(services.get("impliedWarranty")),
+        },
+        "location": template.get("location"),
+        "payments": template.get("payments") or {"invoice": "VAT"},
+        "publication": {"status": "ACTIVE"},
+    }
+    warranty = compact_reference(services.get("warranty"))
+    if warranty:
+        payload["afterSalesServices"]["warranty"] = warranty
+    status = api_patch(f"/sale/product-offers/{offer_id}", access_token, payload)
+    if status not in (200, 202):
+        raise RuntimeError(f"Unexpected Allegro PATCH status: {status}")
+    verified = api_get(f"/sale/product-offers/{offer_id}", access_token)
+    return {
+        "offer_id": offer_id,
+        "sku": ((verified.get("external") or {}).get("id") or ""),
+        "status": ((verified.get("publication") or {}).get("status") or ""),
+        "handling_time": ((verified.get("delivery") or {}).get("handlingTime") or ""),
+        "shipping_rates": compact_reference((verified.get("delivery") or {}).get("shippingRates")),
+        "after_sales_services": verified.get("afterSalesServices") or {},
+        "validation": verified.get("validation") or {},
+    }
+
+
 def apply_sample(preview: dict[str, dict[str, str]], access_token: str, limit: int) -> dict:
     result = {"requested_limit": limit, "updated": 0, "updated_offer_ids": []}
     offset = 0
@@ -318,17 +417,23 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("build/allegro-audit.json"))
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--create-draft", action="store_true")
+    parser.add_argument("--activate-offer", default="")
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--confirm", default="")
     args = parser.parse_args()
     if args.limit < 1 or args.limit > 10:
         raise SystemExit("--limit must be between 1 and 10")
-    if args.apply and args.create_draft:
-        raise SystemExit("--apply and --create-draft cannot be used together")
+    selected_write_modes = int(args.apply) + int(args.create_draft) + int(bool(args.activate_offer))
+    if selected_write_modes > 1:
+        raise SystemExit("--apply, --create-draft and --activate-offer cannot be combined")
     if args.apply and args.confirm != "AMDPRO-10-PERCENT":
         raise SystemExit("Live synchronization requires --confirm AMDPRO-10-PERCENT")
     if args.create_draft and args.confirm != "AMDPRO-CREATE-DRAFT":
         raise SystemExit("Draft creation requires --confirm AMDPRO-CREATE-DRAFT")
+    if args.activate_offer and (
+        args.activate_offer != "18885073327" or args.confirm != "AMDPRO-ACTIVATE-18885073327"
+    ):
+        raise SystemExit("Activation requires the exact offer ID and confirmation")
     required = {name: os.environ.get(name, "") for name in ("ALLEGRO_CLIENT_ID", "ALLEGRO_CLIENT_SECRET", "ALLEGRO_REFRESH_TOKEN")}
     missing = [name for name, value in required.items() if not value]
     if missing:
@@ -351,6 +456,12 @@ def main() -> None:
             "account": account,
             "mode": "create-one-inactive-draft",
             "draft": create_one_draft(preview, tokens["access_token"]),
+        }
+    elif args.activate_offer:
+        result = {
+            "account": account,
+            "mode": "activate-one-verified-draft",
+            "activation": activate_inactive_offer(args.activate_offer, tokens["access_token"]),
         }
     else:
         result = {"account": account, "mode": "dry-run", **audit_offers(preview, tokens["access_token"])}
