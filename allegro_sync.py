@@ -429,9 +429,13 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
 
         def reactivate(item: tuple[str, str]) -> tuple[str, dict]:
             offer_id, sku = item
-            return offer_id, activate_inactive_offer(
-                offer_id, access_token, expected_sku=sku, wait_for_active=False
-            )
+            try:
+                activation = activate_inactive_offer(
+                    offer_id, access_token, expected_sku=sku, wait_for_active=False
+                )
+            except SystemExit as error:
+                raise RuntimeError(str(error)) from None
+            return offer_id, activation
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = {executor.submit(reactivate, item): item for item in inactive_feed_offers}
