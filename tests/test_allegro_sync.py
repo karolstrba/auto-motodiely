@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from allegro_sync import USER_AGENT, build_offer_patch, load_preview, target_price
+from allegro_sync import USER_AGENT, build_offer_patch, load_preview, summarize_missing_offers, target_price
 
 
 class AllegroSyncTest(unittest.TestCase):
@@ -37,6 +37,20 @@ class AllegroSyncTest(unittest.TestCase):
         self.assertEqual(build_offer_patch(offer, {"price_eur_plus_10pct": "25.30", "quantity": "0"}), {})
         offer["publication"]["status"] = "ENDED"
         self.assertEqual(build_offer_patch(offer, {"price_eur_plus_10pct": "25.30", "quantity": "4"}), {})
+
+    def test_missing_offer_summary_separates_ready_and_blocked(self):
+        preview = {
+            "A": {"new_offer_status": "ready", "quantity": "2"},
+            "B": {"new_offer_status": "needs_data", "quantity": "1"},
+            "C": {"new_offer_status": "ready", "quantity": "0"},
+        }
+        self.assertEqual(summarize_missing_offers(preview, {"A"}), {
+            "feed_products": 3,
+            "missing_on_allegro": 2,
+            "ready_to_create": 1,
+            "blocked_to_create": 1,
+            "missing_in_stock": 1,
+        })
 
     def test_load_preview_is_keyed_by_sku(self):
         with tempfile.TemporaryDirectory() as directory:
