@@ -8,6 +8,7 @@ import base64
 import csv
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -32,8 +33,17 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
             "User-Agent": USER_AGENT,
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        try:
+            payload = json.loads(error.read().decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            payload = {}
+        error_name = payload.get("error", "oauth_error")
+        description = payload.get("error_description", "Allegro rejected the token refresh")
+        raise SystemExit(f"Allegro OAuth error: {error_name}: {description}") from None
 
 
 def api_get(path: str, access_token: str) -> dict:
