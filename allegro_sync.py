@@ -157,10 +157,23 @@ def apply_sample(preview: dict[str, dict[str, str]], access_token: str, limit: i
         if len(offers) < 1000:
             break
         offset += len(offers)
+    result.update(summarize_missing_offers(preview, matched_skus))
     return result
 
 
+def summarize_missing_offers(preview: dict[str, dict[str, str]], matched_skus: set[str]) -> dict[str, int]:
+    missing = [row for sku, row in preview.items() if sku not in matched_skus]
+    return {
+        "feed_products": len(preview),
+        "missing_on_allegro": len(missing),
+        "ready_to_create": sum(row.get("new_offer_status") == "ready" for row in missing),
+        "blocked_to_create": sum(row.get("new_offer_status") != "ready" for row in missing),
+        "missing_in_stock": sum(int(row.get("quantity", "0") or "0") > 0 for row in missing),
+    }
+
+
 def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict:
+    matched_skus: set[str] = set()
     result = {
         "offers": 0,
         "matched_by_sku": 0,
@@ -183,6 +196,7 @@ def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict:
                 result["unmatched"] += 1
                 continue
             result["matched_by_sku"] += 1
+            matched_skus.add(sku)
             price = ((offer.get("sellingMode") or {}).get("price") or {})
             current_price = str(price.get("amount") or "")
             currency = str(price.get("currency") or "UNKNOWN")
