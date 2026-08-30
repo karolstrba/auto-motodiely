@@ -46,7 +46,8 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
         # Postman can expose only the access token for some saved OAuth tokens.
         # During this read-only audit, allow that JWT to be supplied through the
         # existing secret so the audit can proceed without changing any offers.
-        access_token = refresh_token.strip()
+        # Copying a long token from Postman may insert visual line breaks.
+        access_token = "".join(refresh_token.split())
         if access_token.lower().startswith("bearer "):
             access_token = access_token[7:].strip()
         if error_name == "invalid_grant" and access_token.count(".") == 2:
