@@ -157,7 +157,6 @@ def apply_sample(preview: dict[str, dict[str, str]], access_token: str, limit: i
         if len(offers) < 1000:
             break
         offset += len(offers)
-    result.update(summarize_missing_offers(preview, matched_skus))
     return result
 
 
@@ -213,6 +212,7 @@ def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict:
         if len(offers) < 1000:
             break
         offset += len(offers)
+    result.update(summarize_missing_offers(preview, matched_skus))
     return result
 
 
