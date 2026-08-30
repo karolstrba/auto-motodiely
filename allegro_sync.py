@@ -210,17 +210,6 @@ def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> d
             sku = ((offer.get("external") or {}).get("id") or "").strip()
             if sku:
                 matched_skus.add(sku)
-            status = (offer.get("publication") or {}).get("status")
-            if status == "ACTIVE":
-                active_offers.append(offer)
-            elif status == "INACTIVE" and sku in preview:
-                row = preview[sku]
-                try:
-                    quantity = int(row.get("quantity", "0") or "0")
-                except ValueError:
-                    quantity = 0
-                if row.get("new_offer_status") == "ready" and quantity > 0:
-                    inactive_feed_offers.append((str(offer.get("id") or ""), sku))
             currency = str((((offer.get("sellingMode") or {}).get("price") or {}).get("currency")) or "")
             if currency:
                 currencies[currency] = currencies.get(currency, 0) + 1
@@ -402,8 +391,17 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
             sku = ((offer.get("external") or {}).get("id") or "").strip()
             if sku:
                 matched_skus.add(sku)
-            if ((offer.get("publication") or {}).get("status")) == "ACTIVE":
+            status = (offer.get("publication") or {}).get("status")
+            if status == "ACTIVE":
                 active_offers.append(offer)
+            elif status == "INACTIVE" and sku in preview:
+                row = preview[sku]
+                try:
+                    quantity = int(row.get("quantity", "0") or "0")
+                except ValueError:
+                    quantity = 0
+                if row.get("new_offer_status") == "ready" and quantity > 0:
+                    inactive_feed_offers.append((str(offer.get("id") or ""), sku))
         if len(offers) < 1000:
             break
         offset += len(offers)
