@@ -217,7 +217,7 @@ def write_allegro_preview(
                     "brand": (product.findtext("marka") or "").strip()[:200],
                     "source_category": (product.findtext("category") or "").strip(),
                     "price_pln": f"{price_pln:.2f}",
-                    "price_pln_plus_10pct": f"{allegro_price(price_pln, Decimal("1"), markup_percent):.2f}" if price_pln > 0 else "",
+                    "price_pln_plus_10pct": f"{allegro_price(price_pln, Decimal('1'), markup_percent):.2f}" if price_pln > 0 else "",
                     "price_eur_plus_10pct": f"{allegro_price(price_pln, pln_per_eur, markup_percent):.2f}" if price_pln > 0 else "",
                     "quantity": str(quantity.quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
                     "image_urls": "|".join(images),
