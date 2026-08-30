@@ -156,17 +156,25 @@ def build_offer_patch(offer: dict, row: dict[str, str]) -> dict:
     return patch
 
 
-def build_draft_payload(row: dict[str, str], currency: str) -> dict:
+def find_unique_catalog_product(row: dict[str, str], access_token: str) -> str:
+    query = urllib.parse.urlencode(
+        {"phrase": row.get("ean", ""), "language": "pl-PL", "mode": "GTIN"}
+    )
+    products = api_get(f"/sale/products?{query}", access_token).get("products", [])
+    return str(products[0].get("id") or "") if len(products) == 1 else ""
+
+
+def build_draft_payload(row: dict[str, str], currency: str, product_id: str) -> dict:
     desired_price = target_price(row, currency)
     try:
         desired_stock = int(row.get("quantity", "0"))
     except ValueError:
         desired_stock = 0
     images = [url for url in row.get("image_urls", "").split("|") if url]
-    if row.get("new_offer_status") != "ready" or not desired_price or desired_stock <= 0:
+    if row.get("new_offer_status") != "ready" or not product_id or not desired_price or desired_stock <= 0:
         return {}
     payload = {
-        "productSet": [{"product": {"id": row["ean"], "idType": "GTIN"}}],
+        "productSet": [{"product": {"id": product_id}}],
         "name": row["name"][:75],
         "sellingMode": {"price": {"amount": desired_price, "currency": currency}},
         "stock": {"available": desired_stock, "unit": "UNIT"},
@@ -200,9 +208,12 @@ def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> d
     for sku, row in preview.items():
         if sku in matched_skus:
             continue
-        payload = build_draft_payload(row, currency)
-        if not payload:
+        if row.get("new_offer_status") != "ready" or int(row.get("quantity", "0") or "0") <= 0:
             continue
+        product_id = find_unique_catalog_product(row, access_token)
+        if not product_id:
+            continue
+        payload = build_draft_payload(row, currency, product_id)
         response = api_post("/sale/product-offers", access_token, payload)
         publication = response.get("publication") or {}
         if publication.get("status") != "INACTIVE":
@@ -335,13 +346,17 @@ def main() -> None:
         if account != "Automotodiely":
             raise SystemExit(f"Wrong Allegro account: {account}")
     preview = load_preview(args.preview)
-    result = {"account": account, "mode": "dry-run", **audit_offers(preview, tokens["access_token"])}
-    if args.apply:
-        result["mode"] = "live-sample"
-        result["live_sample"] = apply_sample(preview, tokens["access_token"], args.limit)
     if args.create_draft:
-        result["mode"] = "create-one-inactive-draft"
-        result["draft"] = create_one_draft(preview, tokens["access_token"])
+        result = {
+            "account": account,
+            "mode": "create-one-inactive-draft",
+            "draft": create_one_draft(preview, tokens["access_token"]),
+        }
+    else:
+        result = {"account": account, "mode": "dry-run", **audit_offers(preview, tokens["access_token"])}
+        if args.apply:
+            result["mode"] = "live-sample"
+            result["live_sample"] = apply_sample(preview, tokens["access_token"], args.limit)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
