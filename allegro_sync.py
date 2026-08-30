@@ -101,6 +101,17 @@ def api_patch(path: str, access_token: str, payload: dict) -> int:
         return response.status
 
 
+def api_post(path: str, access_token: str, payload: dict) -> dict:
+    request = urllib.request.Request(
+        API + path,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"Authorization": f"Bearer {access_token}", "Accept": ACCEPT, "Content-Type": ACCEPT, "User-Agent": USER_AGENT},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
 def load_preview(path: Path) -> dict[str, dict[str, str]]:
     with path.open(encoding="utf-8", newline="") as handle:
         return {row["sku"]: row for row in csv.DictReader(handle) if row.get("sku")}
@@ -133,6 +144,70 @@ def build_offer_patch(offer: dict, row: dict[str, str]) -> dict:
     if str(stock.get("available") or "") != str(desired_stock):
         patch["stock"] = {"available": desired_stock, "unit": str(stock.get("unit") or "UNIT")}
     return patch
+
+
+def build_draft_payload(row: dict[str, str], currency: str) -> dict:
+    desired_price = target_price(row, currency)
+    try:
+        desired_stock = int(row.get("quantity", "0"))
+    except ValueError:
+        desired_stock = 0
+    images = [url for url in row.get("image_urls", "").split("|") if url]
+    if row.get("new_offer_status") != "ready" or not desired_price or desired_stock <= 0:
+        return {}
+    payload = {
+        "productSet": [{"product": {"id": row["ean"], "idType": "GTIN"}}],
+        "name": row["name"][:75],
+        "sellingMode": {"price": {"amount": desired_price, "currency": currency}},
+        "stock": {"available": desired_stock, "unit": "UNIT"},
+        "publication": {"status": "INACTIVE"},
+        "external": {"id": row["sku"][:100]},
+    }
+    if images:
+        payload["images"] = images[:16]
+    return payload
+
+
+def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> dict:
+    matched_skus: set[str] = set()
+    currencies: dict[str, int] = {}
+    offset = 0
+    while True:
+        page = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
+        offers = page.get("offers", [])
+        for offer in offers:
+            sku = ((offer.get("external") or {}).get("id") or "").strip()
+            if sku:
+                matched_skus.add(sku)
+            currency = str((((offer.get("sellingMode") or {}).get("price") or {}).get("currency")) or "")
+            if currency:
+                currencies[currency] = currencies.get(currency, 0) + 1
+        if len(offers) < 1000:
+            break
+        offset += len(offers)
+
+    currency = max(currencies, key=currencies.get) if currencies else "EUR"
+    for sku, row in preview.items():
+        if sku in matched_skus:
+            continue
+        payload = build_draft_payload(row, currency)
+        if not payload:
+            continue
+        response = api_post("/sale/product-offers", access_token, payload)
+        publication = response.get("publication") or {}
+        if publication.get("status") != "INACTIVE":
+            raise RuntimeError("Allegro did not confirm an inactive draft")
+        return {
+            "offer_id": str(response.get("id") or ""),
+            "sku": sku,
+            "ean": row.get("ean", ""),
+            "name": response.get("name") or row.get("name", ""),
+            "price": payload["sellingMode"]["price"],
+            "stock": payload["stock"],
+            "status": publication.get("status"),
+            "validation": response.get("validation") or {},
+        }
+    raise SystemExit("No in-stock, catalog-ready product missing on Allegro was found")
 
 
 def apply_sample(preview: dict[str, dict[str, str]], access_token: str, limit: int) -> dict:
@@ -221,13 +296,18 @@ def main() -> None:
     parser.add_argument("--preview", type=Path, default=Path("build/allegro-preview.csv"))
     parser.add_argument("--output", type=Path, default=Path("build/allegro-audit.json"))
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--create-draft", action="store_true")
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--confirm", default="")
     args = parser.parse_args()
     if args.limit < 1 or args.limit > 10:
         raise SystemExit("--limit must be between 1 and 10")
+    if args.apply and args.create_draft:
+        raise SystemExit("--apply and --create-draft cannot be used together")
     if args.apply and args.confirm != "AMDPRO-10-PERCENT":
         raise SystemExit("Live synchronization requires --confirm AMDPRO-10-PERCENT")
+    if args.create_draft and args.confirm != "AMDPRO-CREATE-DRAFT":
+        raise SystemExit("Draft creation requires --confirm AMDPRO-CREATE-DRAFT")
     required = {name: os.environ.get(name, "") for name in ("ALLEGRO_CLIENT_ID", "ALLEGRO_CLIENT_SECRET", "ALLEGRO_REFRESH_TOKEN")}
     missing = [name for name, value in required.items() if not value]
     if missing:
@@ -249,6 +329,9 @@ def main() -> None:
     if args.apply:
         result["mode"] = "live-sample"
         result["live_sample"] = apply_sample(preview, tokens["access_token"], args.limit)
+    if args.create_draft:
+        result["mode"] = "create-one-inactive-draft"
+        result["draft"] = create_one_draft(preview, tokens["access_token"])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from allegro_sync import USER_AGENT, build_offer_patch, load_preview, summarize_missing_offers, target_price
+from allegro_sync import USER_AGENT, build_draft_payload, build_offer_patch, load_preview, summarize_missing_offers, target_price
 
 
 class AllegroSyncTest(unittest.TestCase):
@@ -37,6 +37,32 @@ class AllegroSyncTest(unittest.TestCase):
         self.assertEqual(build_offer_patch(offer, {"price_eur_plus_10pct": "25.30", "quantity": "0"}), {})
         offer["publication"]["status"] = "ENDED"
         self.assertEqual(build_offer_patch(offer, {"price_eur_plus_10pct": "25.30", "quantity": "4"}), {})
+
+    def test_draft_payload_is_explicitly_inactive_and_uses_eur_markup(self):
+        row = {
+            "sku": "ABC-1",
+            "ean": "5901234123457",
+            "name": "Test product",
+            "quantity": "3",
+            "price_eur_plus_10pct": "25.30",
+            "price_pln_plus_10pct": "110.00",
+            "image_urls": "https://example.com/1.jpg|https://example.com/2.jpg",
+            "new_offer_status": "ready",
+        }
+        payload = build_draft_payload(row, "EUR")
+        self.assertEqual(payload["publication"]["status"], "INACTIVE")
+        self.assertEqual(payload["external"]["id"], "ABC-1")
+        self.assertEqual(payload["productSet"][0]["product"], {"id": "5901234123457", "idType": "GTIN"})
+        self.assertEqual(payload["sellingMode"]["price"], {"amount": "25.30", "currency": "EUR"})
+        self.assertEqual(payload["stock"]["available"], 3)
+
+    def test_draft_payload_rejects_zero_stock(self):
+        row = {
+            "sku": "ABC-1", "ean": "5901234123457", "name": "Test",
+            "quantity": "0", "price_eur_plus_10pct": "25.30",
+            "image_urls": "https://example.com/1.jpg", "new_offer_status": "ready",
+        }
+        self.assertEqual(build_draft_payload(row, "EUR"), {})
 
     def test_missing_offer_summary_separates_ready_and_blocked(self):
         preview = {
