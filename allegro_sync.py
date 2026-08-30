@@ -309,7 +309,8 @@ def resolve_responsible_producer(draft: dict, access_token: str) -> dict:
 
 
 def activate_inactive_offer(
-    offer_id: str, access_token: str, expected_sku: str = "02SKITK"
+    offer_id: str, access_token: str, expected_sku: str = "02SKITK",
+    wait_for_active: bool = True,
 ) -> dict:
     draft = api_get(f"/sale/product-offers/{offer_id}", access_token)
     if str(draft.get("id") or "") != offer_id:
@@ -353,11 +354,12 @@ def activate_inactive_offer(
     if status not in (200, 202):
         raise RuntimeError(f"Unexpected Allegro PATCH status: {status}")
     verified = api_get(f"/sale/product-offers/{offer_id}", access_token)
-    for _ in range(6):
-        if ((verified.get("publication") or {}).get("status")) == "ACTIVE":
-            break
-        time.sleep(5)
-        verified = api_get(f"/sale/product-offers/{offer_id}", access_token)
+    if wait_for_active:
+        for _ in range(6):
+            if ((verified.get("publication") or {}).get("status")) == "ACTIVE":
+                break
+            time.sleep(5)
+            verified = api_get(f"/sale/product-offers/{offer_id}", access_token)
     return {
         "offer_id": offer_id,
         "sku": ((verified.get("external") or {}).get("id") or ""),
@@ -420,7 +422,9 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
                 raise RuntimeError("Allegro did not return a draft offer ID")
             matched_skus.add(sku)
             result["created"] += 1
-            activation = activate_inactive_offer(offer_id, access_token, expected_sku=sku)
+            activation = activate_inactive_offer(
+                offer_id, access_token, expected_sku=sku, wait_for_active=False
+            )
             if activation["status"] == "ACTIVE":
                 result["activated"] += 1
             else:
