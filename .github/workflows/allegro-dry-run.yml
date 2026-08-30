@@ -13,6 +13,11 @@ on:
         required: true
         type: boolean
         default: false
+      publish_all:
+        description: "Publish every eligible missing feed product"
+        required: true
+        type: boolean
+        default: false
       activate_offer:
         description: "Activate exact verified draft offer ID"
         required: false
@@ -38,6 +43,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,4 +66,5 @@ jobs:
           ${{ inputs.apply && '--apply' || '' }}
           ${{ inputs.create_draft && '--create-draft' || '' }}
           ${{ inputs.activate_offer && format('--activate-offer {0}', inputs.activate_offer) || '' }}
+          ${{ inputs.publish_all && '--publish-all' || '' }}
           --confirm "${{ inputs.confirmation }}"

@@ -9,6 +9,7 @@ import csv
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -18,6 +19,9 @@ API = "https://api.allegro.pl"
 TOKEN_URL = "https://allegro.pl/auth/oauth/token"
 ACCEPT = "application/vnd.allegro.public.v1+json"
 USER_AGENT = "AMDPRO-Allegro-Sync/1.0 (+https://amdpro.eu)"
+_ACCOUNT_TEMPLATE_CACHE: dict | None = None
+_ACTIVE_OFFERS_CACHE: list[dict] | None = None
+_PRODUCER_CACHE: dict[str, dict] = {}
 
 
 def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
@@ -116,7 +120,7 @@ def api_post(path: str, access_token: str, payload: dict) -> dict:
             body = json.loads(error.read().decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             body = {"message": error.reason}
-        raise SystemExit(
+        raise RuntimeError(
             f"Allegro API POST {path} failed with HTTP {error.code}: "
             + json.dumps(body, ensure_ascii=False)
         ) from None
@@ -197,6 +201,8 @@ def create_one_draft(preview: dict[str, dict[str, str]], access_token: str) -> d
             sku = ((offer.get("external") or {}).get("id") or "").strip()
             if sku:
                 matched_skus.add(sku)
+            if ((offer.get("publication") or {}).get("status")) == "ACTIVE":
+                active_offers.append(offer)
             currency = str((((offer.get("sellingMode") or {}).get("price") or {}).get("currency")) or "")
             if currency:
                 currencies[currency] = currencies.get(currency, 0) + 1
@@ -237,6 +243,9 @@ def compact_reference(value: dict | None) -> dict:
 
 
 def find_account_template(access_token: str) -> dict:
+    global _ACCOUNT_TEMPLATE_CACHE
+    if _ACCOUNT_TEMPLATE_CACHE is not None:
+        return _ACCOUNT_TEMPLATE_CACHE
     offset = 0
     while True:
         page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
@@ -248,6 +257,7 @@ def find_account_template(access_token: str) -> dict:
             returns = compact_reference(services.get("returnPolicy"))
             complaints = compact_reference(services.get("impliedWarranty"))
             if shipping and returns and complaints and details.get("location"):
+                _ACCOUNT_TEMPLATE_CACHE = details
                 return details
         if len(offers) < 1000:
             break
@@ -267,35 +277,48 @@ def resolve_responsible_producer(draft: dict, access_token: str) -> dict:
     if suggested.get("name"):
         return {"type": "NAME", "name": suggested["name"]}
 
+    global _ACTIVE_OFFERS_CACHE
     brand = str(draft.get("name") or "").split(" ", 1)[0].casefold()
-    offset = 0
-    while True:
-        page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
-        offers = page.get("offers", [])
-        for offer in offers:
-            if brand not in str(offer.get("name") or "").casefold():
-                continue
-            details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
-            for item in details.get("productSet") or []:
-                producer = item.get("responsibleProducer") or {}
-                if producer.get("id"):
-                    return {"type": "ID", "id": producer["id"]}
-                if producer.get("name"):
-                    return {"type": "NAME", "name": producer["name"]}
-        if len(offers) < 1000:
-            break
-        offset += len(offers)
-    raise SystemExit(f"No preset responsible producer found in an active {brand.upper()} offer")
+    if brand in _PRODUCER_CACHE:
+        return _PRODUCER_CACHE[brand]
+    if _ACTIVE_OFFERS_CACHE is None:
+        _ACTIVE_OFFERS_CACHE = []
+        offset = 0
+        while True:
+            page = api_get(f"/sale/offers?publication.status=ACTIVE&limit=1000&offset={offset}", access_token)
+            offers = page.get("offers", [])
+            _ACTIVE_OFFERS_CACHE.extend(offers)
+            if len(offers) < 1000:
+                break
+            offset += len(offers)
+    for offer in _ACTIVE_OFFERS_CACHE:
+        if brand not in str(offer.get("name") or "").casefold():
+            continue
+        details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
+        for item in details.get("productSet") or []:
+            producer = item.get("responsibleProducer") or {}
+            if producer.get("id"):
+                resolved = {"type": "ID", "id": producer["id"]}
+                _PRODUCER_CACHE[brand] = resolved
+                return resolved
+            if producer.get("name"):
+                resolved = {"type": "NAME", "name": producer["name"]}
+                _PRODUCER_CACHE[brand] = resolved
+                return resolved
+    raise RuntimeError(f"No preset responsible producer found in an active {brand.upper()} offer")
 
 
-def activate_inactive_offer(offer_id: str, access_token: str) -> dict:
+def activate_inactive_offer(
+    offer_id: str, access_token: str, expected_sku: str = "02SKITK",
+    wait_for_active: bool = True,
+) -> dict:
     draft = api_get(f"/sale/product-offers/{offer_id}", access_token)
     if str(draft.get("id") or "") != offer_id:
         raise SystemExit("Allegro returned a different offer")
     if ((draft.get("publication") or {}).get("status")) != "INACTIVE":
         raise SystemExit("Only an INACTIVE draft can be activated by this mode")
-    if ((draft.get("external") or {}).get("id")) != "02SKITK":
-        raise SystemExit("Safety check failed: unexpected SKU for the first draft")
+    if ((draft.get("external") or {}).get("id")) != expected_sku:
+        raise RuntimeError("Safety check failed: unexpected SKU")
 
     template = find_account_template(access_token)
     services = template.get("afterSalesServices") or {}
@@ -331,6 +354,12 @@ def activate_inactive_offer(offer_id: str, access_token: str) -> dict:
     if status not in (200, 202):
         raise RuntimeError(f"Unexpected Allegro PATCH status: {status}")
     verified = api_get(f"/sale/product-offers/{offer_id}", access_token)
+    if wait_for_active:
+        for _ in range(6):
+            if ((verified.get("publication") or {}).get("status")) == "ACTIVE":
+                break
+            time.sleep(5)
+            verified = api_get(f"/sale/product-offers/{offer_id}", access_token)
     return {
         "offer_id": offer_id,
         "sku": ((verified.get("external") or {}).get("id") or ""),
@@ -340,6 +369,75 @@ def activate_inactive_offer(offer_id: str, access_token: str) -> dict:
         "after_sales_services": verified.get("afterSalesServices") or {},
         "validation": verified.get("validation") or {},
     }
+
+
+def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> dict:
+    global _ACTIVE_OFFERS_CACHE
+    matched_skus: set[str] = set()
+    active_offers: list[dict] = []
+    offset = 0
+    while True:
+        page = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
+        offers = page.get("offers", [])
+        for offer in offers:
+            sku = ((offer.get("external") or {}).get("id") or "").strip()
+            if sku:
+                matched_skus.add(sku)
+            if ((offer.get("publication") or {}).get("status")) == "ACTIVE":
+                active_offers.append(offer)
+        if len(offers) < 1000:
+            break
+        offset += len(offers)
+    _ACTIVE_OFFERS_CACHE = active_offers
+
+    result = {
+        "eligible_missing": 0,
+        "created": 0,
+        "activated": 0,
+        "still_inactive": 0,
+        "skipped_catalog": 0,
+        "errors": 0,
+        "error_samples": [],
+        "offer_ids": [],
+    }
+    for sku, row in preview.items():
+        if sku in matched_skus:
+            continue
+        try:
+            quantity = int(row.get("quantity", "0") or "0")
+        except ValueError:
+            quantity = 0
+        if row.get("new_offer_status") != "ready" or quantity <= 0:
+            continue
+        result["eligible_missing"] += 1
+        product_id = find_unique_catalog_product(row, access_token)
+        if not product_id:
+            result["skipped_catalog"] += 1
+            continue
+        payload = build_draft_payload(row, "EUR", product_id)
+        try:
+            draft = api_post("/sale/product-offers", access_token, payload)
+            offer_id = str(draft.get("id") or "")
+            if not offer_id:
+                raise RuntimeError("Allegro did not return a draft offer ID")
+            matched_skus.add(sku)
+            result["created"] += 1
+            activation = activate_inactive_offer(
+                offer_id, access_token, expected_sku=sku, wait_for_active=False
+            )
+            if activation["status"] == "ACTIVE":
+                result["activated"] += 1
+            else:
+                result["still_inactive"] += 1
+            if len(result["offer_ids"]) < 100:
+                result["offer_ids"].append(offer_id)
+        except Exception as error:
+            result["errors"] += 1
+            if len(result["error_samples"]) < 20:
+                result["error_samples"].append({"sku": sku, "error": str(error)[:1000]})
+        if result["created"] and result["created"] % 25 == 0:
+            print("Batch progress:", json.dumps({key: result[key] for key in ("eligible_missing", "created", "activated", "still_inactive", "skipped_catalog", "errors")}))
+    return result
 
 
 def apply_sample(preview: dict[str, dict[str, str]], access_token: str, limit: int) -> dict:
@@ -430,14 +528,15 @@ def main() -> None:
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--create-draft", action="store_true")
     parser.add_argument("--activate-offer", default="")
+    parser.add_argument("--publish-all", action="store_true")
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--confirm", default="")
     args = parser.parse_args()
     if args.limit < 1 or args.limit > 10:
         raise SystemExit("--limit must be between 1 and 10")
-    selected_write_modes = int(args.apply) + int(args.create_draft) + int(bool(args.activate_offer))
+    selected_write_modes = int(args.apply) + int(args.create_draft) + int(bool(args.activate_offer)) + int(args.publish_all)
     if selected_write_modes > 1:
-        raise SystemExit("--apply, --create-draft and --activate-offer cannot be combined")
+        raise SystemExit("Only one write mode can be selected")
     if args.apply and args.confirm != "AMDPRO-10-PERCENT":
         raise SystemExit("Live synchronization requires --confirm AMDPRO-10-PERCENT")
     if args.create_draft and args.confirm != "AMDPRO-CREATE-DRAFT":
@@ -446,6 +545,8 @@ def main() -> None:
         args.activate_offer != "18885073327" or args.confirm != "AMDPRO-ACTIVATE-18885073327"
     ):
         raise SystemExit("Activation requires the exact offer ID and confirmation")
+    if args.publish_all and args.confirm != "AMDPRO-PUBLISH-ALL-READY":
+        raise SystemExit("Publishing all ready offers requires the exact confirmation")
     required = {name: os.environ.get(name, "") for name in ("ALLEGRO_CLIENT_ID", "ALLEGRO_CLIENT_SECRET", "ALLEGRO_REFRESH_TOKEN")}
     missing = [name for name, value in required.items() if not value]
     if missing:
@@ -474,6 +575,12 @@ def main() -> None:
             "account": account,
             "mode": "activate-one-verified-draft",
             "activation": activate_inactive_offer(args.activate_offer, tokens["access_token"]),
+        }
+    elif args.publish_all:
+        result = {
+            "account": account,
+            "mode": "publish-all-ready-feed-offers",
+            "publication": publish_all_ready(preview, tokens["access_token"]),
         }
     else:
         result = {"account": account, "mode": "dry-run", **audit_offers(preview, tokens["access_token"])}
