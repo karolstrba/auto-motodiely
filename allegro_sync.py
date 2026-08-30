@@ -292,19 +292,19 @@ def resolve_responsible_producer(draft: dict, access_token: str) -> dict:
                 break
             offset += len(offers)
     for offer in _ACTIVE_OFFERS_CACHE:
-            if brand not in str(offer.get("name") or "").casefold():
-                continue
-            details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
-            for item in details.get("productSet") or []:
-                producer = item.get("responsibleProducer") or {}
-                if producer.get("id"):
-                    resolved = {"type": "ID", "id": producer["id"]}
-                    _PRODUCER_CACHE[brand] = resolved
-                    return resolved
-                if producer.get("name"):
-                    resolved = {"type": "NAME", "name": producer["name"]}
-                    _PRODUCER_CACHE[brand] = resolved
-                    return resolved
+        if brand not in str(offer.get("name") or "").casefold():
+            continue
+        details = api_get(f"/sale/product-offers/{offer['id']}", access_token)
+        for item in details.get("productSet") or []:
+            producer = item.get("responsibleProducer") or {}
+            if producer.get("id"):
+                resolved = {"type": "ID", "id": producer["id"]}
+                _PRODUCER_CACHE[brand] = resolved
+                return resolved
+            if producer.get("name"):
+                resolved = {"type": "NAME", "name": producer["name"]}
+                _PRODUCER_CACHE[brand] = resolved
+                return resolved
     raise RuntimeError(f"No preset responsible producer found in an active {brand.upper()} offer")
 
 
@@ -381,6 +381,8 @@ def publish_all_ready(preview: dict[str, dict[str, str]], access_token: str) -> 
             sku = ((offer.get("external") or {}).get("id") or "").strip()
             if sku:
                 matched_skus.add(sku)
+            if ((offer.get("publication") or {}).get("status")) == "ACTIVE":
+                active_offers.append(offer)
         if len(offers) < 1000:
             break
         offset += len(offers)
