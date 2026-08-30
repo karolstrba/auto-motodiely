@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from allegro_sync import USER_AGENT, build_draft_payload, build_offer_patch, load_preview, summarize_missing_offers, target_price
+from allegro_sync import USER_AGENT, build_draft_payload, build_offer_patch, compact_reference, load_preview, summarize_missing_offers, target_price
 
 
 class AllegroSyncTest(unittest.TestCase):
@@ -63,6 +63,11 @@ class AllegroSyncTest(unittest.TestCase):
             "image_urls": "https://example.com/1.jpg", "new_offer_status": "ready",
         }
         self.assertEqual(build_draft_payload(row, "EUR", "65ca51de-3fa0-4e51-88d9-d13a29e3b8ea"), {})
+
+    def test_compact_reference_prefers_preset_id(self):
+        self.assertEqual(compact_reference({"id": "preset-1", "name": "Default"}), {"id": "preset-1"})
+        self.assertEqual(compact_reference({"name": "Default"}), {"name": "Default"})
+        self.assertEqual(compact_reference(None), {})
 
     def test_missing_offer_summary_separates_ready_and_blocked(self):
         preview = {
