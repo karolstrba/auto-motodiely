@@ -52,7 +52,7 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
         access_token = re.sub(r"[^A-Za-z0-9._-]", "", refresh_token)
         if access_token.lower().startswith("bearer "):
             access_token = access_token[7:].strip()
-        if error_name == "invalid_grant" and access_token.count(".") == 2:
+        if access_token.count(".") == 2:
             print("Refresh token unavailable; using the supplied access token for this read-only audit.")
             return {"access_token": access_token}
         raise SystemExit(f"Allegro OAuth error: {error_name}: {description}") from None
