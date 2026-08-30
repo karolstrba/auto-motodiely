@@ -1,8 +1,10 @@
 import tempfile
 import unittest
+import urllib.error
+from unittest.mock import patch
 from pathlib import Path
 
-from allegro_sync import USER_AGENT, build_draft_payload, build_offer_patch, compact_reference, load_preview, summarize_missing_offers, target_price
+from allegro_sync import USER_AGENT, build_draft_payload, build_offer_patch, compact_reference, find_unique_catalog_product, load_preview, summarize_missing_offers, target_price
 
 
 class AllegroSyncTest(unittest.TestCase):
@@ -82,6 +84,14 @@ class AllegroSyncTest(unittest.TestCase):
             "blocked_to_create": 1,
             "missing_in_stock": 1,
         })
+
+    @patch("allegro_sync.api_get")
+    def test_catalog_404_is_treated_as_missing_product(self, api_get):
+        api_get.side_effect = urllib.error.HTTPError(
+            "https://api.allegro.pl/sale/products", 404, "Not Found", {}, None
+        )
+        row = {"ean": "5901234123457"}
+        self.assertEqual(find_unique_catalog_product(row, "token"), "")
 
     def test_load_preview_is_keyed_by_sku(self):
         with tempfile.TemporaryDirectory() as directory:
