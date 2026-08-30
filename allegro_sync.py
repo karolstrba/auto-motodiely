@@ -108,8 +108,18 @@ def api_post(path: str, access_token: str, payload: dict) -> dict:
         method="POST",
         headers={"Authorization": f"Bearer {access_token}", "Accept": ACCEPT, "Content-Type": ACCEPT, "User-Agent": USER_AGENT},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        try:
+            body = json.loads(error.read().decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            body = {"message": error.reason}
+        raise SystemExit(
+            f"Allegro API POST {path} failed with HTTP {error.code}: "
+            + json.dumps(body, ensure_ascii=False)
+        ) from None
 
 
 def load_preview(path: Path) -> dict[str, dict[str, str]]:
