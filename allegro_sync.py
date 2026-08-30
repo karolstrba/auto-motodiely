@@ -43,6 +43,12 @@ def refresh_access_token(client_id: str, client_secret: str, refresh_token: str)
             payload = {}
         error_name = payload.get("error", "oauth_error")
         description = payload.get("error_description", "Allegro rejected the token refresh")
+        # Postman can expose only the access token for some saved OAuth tokens.
+        # During this read-only audit, allow that JWT to be supplied through the
+        # existing secret so the audit can proceed without changing any offers.
+        if error_name == "invalid_grant" and refresh_token.count(".") == 2:
+            print("Refresh token unavailable; using the supplied access token for this read-only audit.")
+            return {"access_token": refresh_token}
         raise SystemExit(f"Allegro OAuth error: {error_name}: {description}") from None
 
 
