@@ -49,10 +49,10 @@ class AllegroSyncTest(unittest.TestCase):
             "image_urls": "https://example.com/1.jpg|https://example.com/2.jpg",
             "new_offer_status": "ready",
         }
-        payload = build_draft_payload(row, "EUR")
+        payload = build_draft_payload(row, "EUR", "65ca51de-3fa0-4e51-88d9-d13a29e3b8ea")
         self.assertEqual(payload["publication"]["status"], "INACTIVE")
         self.assertEqual(payload["external"]["id"], "ABC-1")
-        self.assertEqual(payload["productSet"][0]["product"], {"id": "5901234123457", "idType": "GTIN"})
+        self.assertEqual(payload["productSet"][0]["product"], {"id": "65ca51de-3fa0-4e51-88d9-d13a29e3b8ea"})
         self.assertEqual(payload["sellingMode"]["price"], {"amount": "25.30", "currency": "EUR"})
         self.assertEqual(payload["stock"]["available"], 3)
 
@@ -62,7 +62,7 @@ class AllegroSyncTest(unittest.TestCase):
             "quantity": "0", "price_eur_plus_10pct": "25.30",
             "image_urls": "https://example.com/1.jpg", "new_offer_status": "ready",
         }
-        self.assertEqual(build_draft_payload(row, "EUR"), {})
+        self.assertEqual(build_draft_payload(row, "EUR", "65ca51de-3fa0-4e51-88d9-d13a29e3b8ea"), {})
 
     def test_missing_offer_summary_separates_ready_and_blocked(self):
         preview = {
