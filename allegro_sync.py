@@ -94,8 +94,25 @@ def load_preview(path: Path) -> dict[str, dict[str, str]]:
         return {row["sku"]: row for row in csv.DictReader(handle) if row.get("sku")}
 
 
-def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict[str, int]:
-    result = {"offers": 0, "matched_by_sku": 0, "unmatched": 0, "price_changes": 0, "stock_changes": 0}
+def target_price(row: dict[str, str], currency: str) -> str:
+    if currency == "PLN":
+        return row.get("price_pln_plus_10pct", "")
+    if currency == "EUR":
+        return row.get("price_eur_plus_10pct", "")
+    return ""
+
+
+def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict:
+    result = {
+        "offers": 0,
+        "matched_by_sku": 0,
+        "unmatched": 0,
+        "price_changes": 0,
+        "stock_changes": 0,
+        "unsupported_currency": 0,
+        "currencies": {},
+        "marketplaces": {},
+    }
     offset = 0
     while True:
         payload = api_get(f"/sale/offers?limit=1000&offset={offset}", access_token)
@@ -108,9 +125,18 @@ def audit_offers(preview: dict[str, dict[str, str]], access_token: str) -> dict[
                 result["unmatched"] += 1
                 continue
             result["matched_by_sku"] += 1
-            current_price = str(((offer.get("sellingMode") or {}).get("price") or {}).get("amount") or "")
+            price = ((offer.get("sellingMode") or {}).get("price") or {})
+            current_price = str(price.get("amount") or "")
+            currency = str(price.get("currency") or "UNKNOWN")
+            result["currencies"][currency] = result["currencies"].get(currency, 0) + 1
+            marketplace = str((((offer.get("publication") or {}).get("marketplace") or {}).get("id")) or "UNKNOWN")
+            result["marketplaces"][marketplace] = result["marketplaces"].get(marketplace, 0) + 1
+            desired_price = target_price(row, currency)
+            if desired_price:
+                result["price_changes"] += int(current_price != desired_price)
+            else:
+                result["unsupported_currency"] += 1
             current_stock = str(((offer.get("stock") or {}).get("available") or ""))
-            result["price_changes"] += int(current_price != row["price_eur_plus_10pct"])
             result["stock_changes"] += int(current_stock != row["quantity"])
         if len(offers) < 1000:
             break
