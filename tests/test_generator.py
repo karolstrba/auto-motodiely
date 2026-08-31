@@ -32,6 +32,25 @@ class GeneratorTest(unittest.TestCase):
             self.assertEqual(codes, {"tyre", "core"})
             self.assertTrue(all(node.find("STOCK/AMOUNT") is not None for node in root))
 
+    def test_slovak_name_override_uses_product_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.xml"
+            output = Path(directory) / "feed.xml"
+            source.write_bytes(XML)
+            selected, _ = choose(source, 1)
+            self.assertEqual(
+                write_feed(
+                    source,
+                    output,
+                    selected,
+                    Decimal("4"),
+                    name_map={"tyre": "Cestná pneumatika"},
+                ),
+                1,
+            )
+            item = ET.parse(output).getroot().find("SHOPITEM")
+            self.assertEqual(item.findtext("NAME"), "Cestná pneumatika")
+
     def test_allegro_preview_keeps_zero_stock_and_adds_ten_percent(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.xml"
