@@ -1,0 +1,26 @@
+name: Translation audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build private translation inventory
+        env:
+          SOURCE_FEED_URL: ${{ secrets.SOURCE_FEED_URL }}
+        run: python translation_audit.py
+      - name: Upload private audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-audit
+          path: audit/
+          retention-days: 7
