@@ -2,11 +2,6 @@ name: Translation audit
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - translation_audit.py
-      - .github/workflows/translation-audit.yml
 
 permissions:
   contents: read
