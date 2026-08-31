@@ -111,14 +111,31 @@ def load_category_map(path: Path) -> dict[str, str]:
         return {row["pl_category"].strip(): row["sk_category"].strip() for row in csv.DictReader(handle) if row.get("pl_category") and row.get("sk_category")}
 
 
-def to_shoptet_item(product: ET.Element, pln_per_eur: Decimal, category_map: dict[str, str]) -> ET.Element:
+def load_name_map(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {
+            row["code"].strip(): row["sk_name"].strip()
+            for row in csv.DictReader(handle)
+            if row.get("code") and row.get("sk_name")
+        }
+
+
+def to_shoptet_item(
+    product: ET.Element,
+    pln_per_eur: Decimal,
+    category_map: dict[str, str],
+    name_map: dict[str, str],
+) -> ET.Element:
     item = ET.Element("SHOPITEM")
-    name = (product.findtext("name") or "").strip()[:250]
     code = (
         (product.findtext("kod") or "").strip()
         or (product.findtext("symbol") or "").strip()
         or product.attrib.get("id", "").strip()
     )
+    source_name = (product.findtext("name") or "").strip()
+    name = name_map.get(code, source_name)[:250]
     category = (product.findtext("category") or "").strip()
     price_pln = decimal(product.findtext("price"))
     quantity = decimal(product.findtext("quantity"))
@@ -237,8 +254,10 @@ def write_allegro_preview(
 def write_feed(
     source: Path, destination: Path, selected: set[str], pln_per_eur: Decimal,
     category_map: dict[str, str] | None = None,
+    name_map: dict[str, str] | None = None,
 ) -> int:
     category_map = category_map or {}
+    name_map = name_map or {}
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")
     count = 0
@@ -248,7 +267,12 @@ def write_feed(
             if product.tag != "product":
                 continue
             if product.attrib.get("id", "") in selected:
-                output.write(ET.tostring(to_shoptet_item(product, pln_per_eur, category_map), encoding="utf-8"))
+                output.write(
+                    ET.tostring(
+                        to_shoptet_item(product, pln_per_eur, category_map, name_map),
+                        encoding="utf-8",
+                    )
+                )
                 output.write(b"\n")
                 count += 1
             product.clear()
@@ -299,6 +323,7 @@ def main() -> None:
     parser.add_argument("--status", type=Path, default=Path("public/status.json"))
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--category-map", type=Path, default=Path("translations/categories-sk.csv"))
+    parser.add_argument("--name-map", type=Path, default=Path("translations/product-names-sk.csv"))
     parser.add_argument("--allegro-preview", type=Path, default=Path("build/allegro-preview.csv"))
     parser.add_argument("--allegro-markup", type=Decimal, default=DEFAULT_ALLEGRO_MARKUP)
     args = parser.parse_args()
@@ -316,7 +341,14 @@ def main() -> None:
 
         selected, in_stock = choose(source, args.limit)
         rate = exchange_rate()
-        count = write_feed(source, args.output, selected, rate, load_category_map(args.category_map))
+        count = write_feed(
+            source,
+            args.output,
+            selected,
+            rate,
+            load_category_map(args.category_map),
+            load_name_map(args.name_map),
+        )
         allegro_counts = write_allegro_preview(
             source, args.allegro_preview, rate, args.allegro_markup
         )
