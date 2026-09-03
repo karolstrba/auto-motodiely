@@ -142,16 +142,18 @@ RULES = (
     Rule("Elektrické diely > Osvetlenie a smerovky", (r"svetlo", r"lamp", r"smerov", r"kierunkowskaz")),
     Rule("Elektrické diely > Kabeláž, žiarovky a poistky", (r"kabel", r"kabl", r"ziarov", r"poistk", r"bezpiecznik")),
     Rule("Elektrické diely > Merače motohodín", (r"motohodin", r"licznik.*godzin")),
-    Rule("Oleje, filtre a chémia > Olejové filtre", (r"olejov.*filter", r"filtr.*olej")),
-    Rule("Oleje, filtre a chémia > Vzduchové filtre", (r"vzduchov.*filter", r"filtr.*powietrz")),
-    Rule("Oleje, filtre a chémia > Palivové filtre", (r"palivov.*filter", r"filtr.*paliw")),
-    Rule("Oleje, filtre a chémia > Motorové oleje 2T", (r"olej.*\b2t\b", r"olej.*dwusuw")),
-    Rule("Oleje, filtre a chémia > Motorové oleje 4T", (r"olej.*\b4t\b", r"olej.*czterosuw")),
-    Rule("Oleje, filtre a chémia > Vidlicové a tlmičové oleje", (r"vidlicov.*olej", r"tlmic.*olej", r"fork oil")),
-    Rule("Oleje, filtre a chémia > Prevodové oleje", (r"prevodov.*olej", r"gear oil")),
-    Rule("Oleje, filtre a chémia > Brzdové kvapaliny", (r"brzdov.*kvapalin", r"brake fluid")),
-    Rule("Oleje, filtre a chémia > Mazivá a vazelíny", (r"\bmaziv", r"vazelin", r"smar")),
-    Rule("Oleje, filtre a chémia > Servisná chémia a čističe", (r"\bcistic", r"chemia", r"odmast", r"cleaner")),
+    Rule("Filtre > Olejové filtre", (r"olejov.*filter", r"filtr.*olej")),
+    Rule("Filtre > Vzduchové filtre", (r"vzduchov.*filter", r"filtr.*powietrz")),
+    Rule("Filtre > Palivové filtre", (r"palivov.*filter", r"filtr.*paliw")),
+    Rule("Oleje a kvapaliny > Motorové oleje 2T", (r"olej.*\b2t\b", r"olej.*dwusuw")),
+    Rule("Oleje a kvapaliny > Motorové oleje 4T", (r"olej.*\b4t\b", r"olej.*czterosuw")),
+    Rule("Oleje a kvapaliny > Vidlicové a tlmičové oleje", (r"vidlicov.*olej", r"tlmic.*olej", r"fork oil")),
+    Rule("Oleje a kvapaliny > Prevodové oleje", (r"prevodov.*olej", r"gear oil")),
+    Rule("Oleje a kvapaliny > Hydraulické oleje", (r"hydraul.*olej", r"hydraulic oil")),
+    Rule("Oleje a kvapaliny > Brzdové kvapaliny", (r"brzdov.*kvapalin", r"brake fluid")),
+    Rule("Oleje a kvapaliny > Chladiace kvapaliny", (r"chladiac.*kvapalin", r"coolant", r"antifreeze")),
+    Rule("Oleje a kvapaliny > Mazivá a vazelíny", (r"\bmaziv", r"vazelin", r"smar")),
+    Rule("Oleje a kvapaliny > Servisná chémia a čističe", (r"\bcistic", r"chemia", r"odmast", r"cleaner")),
     Rule("Výfuky > Tesnenia a príslušenstvo výfukov", (r"tesnen.*vyfuk", r"prislusenstvo.*vyfuk", r"uszczelk.*wydech")),
     Rule("Výfuky > Koncovky výfukov", (r"koncovk.*vyfuk", r"tlmic.*vyfuk")),
     Rule("Výfuky > Zvody", (r"\bzvod", r"kolektor.*wydech")),
@@ -222,7 +224,7 @@ def classify(item: ET.Element, supplier: dict[str, str] | None = None) -> tuple[
         pass
     elif is_atv and root in ATV_REWRITES:
         target = target.replace(root, "ATV/UTV > " + ATV_REWRITES[root], 1)
-    elif root not in {"Oblečenie", "Výstroj", "Príslušenstvo a náradie"}:
+    elif root not in {"Oblečenie", "Výstroj", "Príslušenstvo a náradie", "Oleje a kvapaliny"}:
         target = "Motodiely > " + target
     alternatives = [candidate[2] for candidate in candidates[1:4] if candidate[0] >= best[0] - 2]
     confidence = best[0]
