@@ -106,15 +106,8 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 - Kabeláž, žiarovky a poistky
 - Merače motohodín
 
-### Oleje, filtre a chémia
+### Filtre
 
-- Motorové oleje 2T
-- Motorové oleje 4T
-- Prevodové oleje
-- Vidlicové a tlmičové oleje
-- Hydraulické oleje
-- Mazivá a vazelíny
-- Servisná chémia a čističe
 - Olejové filtre
 - Vzduchové filtre
 - Palivové filtre
@@ -138,7 +131,19 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 - Zrkadlá
 - Polepy a nálepky
 
-## 2. ATV/UTV
+## 2. Oleje a kvapaliny
+
+- Motorové oleje 2T
+- Motorové oleje 4T
+- Prevodové oleje
+- Vidlicové a tlmičové oleje
+- Hydraulické oleje
+- Brzdové kvapaliny
+- Chladiace kvapaliny
+- Mazivá a vazelíny
+- Servisná chémia a čističe
+
+## 3. ATV/UTV
 
 ### Kolesá a pneumatiky ATV/UTV
 
@@ -220,7 +225,7 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 - Ťažné zariadenia
 - Zrkadlá a plexi
 
-## 3. Oblečenie
+## 4. Oblečenie
 
 ### MX oblečenie
 
@@ -250,7 +255,7 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 - Čiapky a šiltovky
 - Doplnky
 
-## 4. Výstroj
+## 5. Výstroj
 
 ### Prilby a okuliare
 
@@ -279,7 +284,7 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 - Ľadvinové pásy
 - Detské chrániče
 
-## 5. Príslušenstvo a náradie
+## 6. Príslušenstvo a náradie
 
 ### Moto príslušenstvo
 
