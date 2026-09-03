@@ -17,7 +17,10 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 
-ROOTS = ("Motodiely", "ATV/UTV", "Oblečenie", "Výstroj", "Príslušenstvo a náradie")
+ROOTS = (
+    "Motodiely", "Oleje a kvapaliny", "ATV/UTV", "Oblečenie", "Výstroj",
+    "Príslušenstvo a náradie",
+)
 DEFAULT_CODES = ("HF204", "HE169L", "BBC-01G", "24-1069", "CS-03RD", "ESK-201")
 
 
