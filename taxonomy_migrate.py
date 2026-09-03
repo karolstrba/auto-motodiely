@@ -18,10 +18,14 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
+from join_supplier_names import supplier_index
+
 
 def fold(value: str) -> str:
     value = unicodedata.normalize("NFKD", value or "")
-    return " ".join("".join(c for c in value if not unicodedata.combining(c)).lower().split())
+    value = "".join(c for c in value if not unicodedata.combining(c)).lower()
+    value = value.translate(str.maketrans({"ł": "l", "đ": "d", "ß": "ss"}))
+    return " ".join(value.split())
 
 
 @functools.lru_cache(maxsize=None)
@@ -99,7 +103,7 @@ RULES = (
     Rule("Brzdy > Brzdové čeľuste", (r"brzdov.*celust", r"szczek.*hamul")),
     Rule("Brzdy > Brzdové hadice", (r"brzdov.*hadic", r"przewod.*hamul")),
     Rule("Brzdy > Brzdové strmene", (r"brzdov.*strmen", r"zacisk.*hamul")),
-    Rule("Brzdy > Brzdové pumpy", (r"brzdov.*pump", r"hlavn.*brzd.*valec")),
+    Rule("Brzdy > Brzdové pumpy", (r"brzdov.*pump", r"hlavn.*brzd.*valec", r"pompa.*hamul")),
     Rule("Brzdy > Opravné sady bŕzd", (r"oprav.*sad.*brzd", r"repas.*brzd", r"zestaw.*napraw.*hamul")),
     Rule("Brzdy > Adaptéry brzdových kotúčov", (r"adapter.*brzd", r"adapter.*kotuc")),
     Rule("Pohon a reťazové sady > Vodítka a kladky reťaze", (r"voditk.*retaz", r"kladk.*retaz", r"slizg.*lanc")),
@@ -112,6 +116,7 @@ RULES = (
     # Engine, fuel and cooling.
     Rule("Motor > Piesty a piestne sady", (r"\bpiest", r"tłok", r"tlok")),
     Rule("Motor > Valce a hlavy", (r"\bvalec", r"\bvalce", r"hlav.*valc", r"cylind", r"glowic")),
+    Rule("Motor > Ložiská motora", (r"lozisk.*motor", r"lozysk.*silnik", r"lozisk.*kluk", r"lozysk.*wal.*korbow")),
     Rule("Motor > Ojnice a kľukové hriadele", (r"\bojnic", r"klukov.*hriad", r"korbowod", r"wal.*korbow")),
     Rule("Motor > Ventily a ventilové sady", (r"\bventil", r"zawor")),
     Rule("Motor > Rozvody", (r"\brozvod", r"vackov.*hriad", r"rozrzad")),
@@ -119,7 +124,6 @@ RULES = (
     Rule("Motor > Guferá", (r"\bgufer", r"uszczelniacz")),
     Rule("Motor > Spojky a spojkové diely", (r"\bspojk", r"sprzegl")),
     Rule("Motor > Prevodovka", (r"prevodov", r"skrzyn.*bieg")),
-    Rule("Motor > Ložiská motora", (r"lozisk.*motor", r"ložisk.*motor", r"łożysk.*silnik", r"lozisk.*kluk")),
     Rule("Palivový a chladiaci systém > Karburátory a diely karburátorov", (r"karbur", r"gaznik", r"gaźnik")),
     Rule("Palivový a chladiaci systém > Vstrekovanie paliva", (r"vstrek", r"wtrysk")),
     Rule("Palivový a chladiaci systém > Palivové čerpadlá", (r"palivov.*cerpad", r"pompa.*paliw")),
@@ -178,11 +182,13 @@ ATV_SPECIAL = (
 )
 
 
-def classify(item: ET.Element) -> tuple[str, int, str, list[str]]:
-    name = fold(item.findtext("NAME") or "")
+def classify(item: ET.Element, supplier: dict[str, str] | None = None) -> tuple[str, int, str, list[str]]:
+    supplier = supplier or {}
+    name = fold(" ".join((item.findtext("NAME") or "", supplier.get("supplier_name_pl", ""))))
     descriptions = fold(" ".join((item.findtext(tag) or "") for tag in ("SHORT_DESCRIPTION", "DESCRIPTION")))[:4000]
     categories = [fold(node.text or "") for node in item.findall("./CATEGORIES/CATEGORY")]
-    category_text = " | ".join(categories)
+    supplier_category = fold(supplier.get("supplier_category_pl", ""))
+    category_text = " | ".join(categories + ([supplier_category] if supplier_category else []))
     text = f"{name} | {category_text} | {descriptions}"
     is_atv = any(path.startswith("atv/utv") for path in categories) or bool(ATV_MARKERS.search(f"{name} {category_text}"))
 
@@ -226,12 +232,21 @@ def classify(item: ET.Element) -> tuple[str, int, str, list[str]]:
 
 def rewrite_categories(item: ET.Element, target: str, sale: bool) -> None:
     old = item.find("CATEGORIES")
+    old_paths = [(node.text or "").strip() for node in item.findall("./CATEGORIES/CATEGORY")]
+    compatibility_paths = [
+        path for path in old_paths
+        if "Diely podľa motocykla >" in path or "Diely podľa ATV >" in path
+    ]
     insert_at = list(item).index(old) if old is not None else min(8, len(item))
     if old is not None:
         item.remove(old)
     container = ET.Element("CATEGORIES")
     category = ET.SubElement(container, "CATEGORY")
     category.text = target
+    for path in dict.fromkeys(compatibility_paths):
+        if path != target:
+            compatibility = ET.SubElement(container, "CATEGORY")
+            compatibility.text = path
     if sale:
         sale_category = ET.SubElement(container, "CATEGORY")
         sale_category.text = "Výpredaj"
@@ -243,6 +258,7 @@ def rewrite_categories(item: ET.Element, target: str, sale: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
+    parser.add_argument("--supplier-feed", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--review", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
@@ -251,6 +267,7 @@ def main() -> None:
     args.review.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
     counts: collections.Counter[str] = collections.Counter()
+    by_code, by_ean, _, _ = supplier_index(args.supplier_feed)
     reviewed = 0
     sales = 0
 
@@ -263,8 +280,19 @@ def main() -> None:
                 continue
             name = (item.findtext("NAME") or "").strip()
             code = (item.findtext("CODE") or "").strip()
+            ean = (item.findtext("EAN") or "").strip()
             old = " | ".join((node.text or "").strip() for node in item.findall("./CATEGORIES/CATEGORY"))
-            target, confidence, reason, alternatives = classify(item)
+            code_match = by_code.get(code)
+            ean_match = by_ean.get(ean) if ean else None
+            conflict = bool(code_match and ean_match and code_match["supplier_id"] != ean_match["supplier_id"])
+            if conflict or not (code_match or ean_match):
+                output.write(ET.tostring(item, encoding="utf-8", short_empty_elements=True))
+                output.write(b"\n")
+                counts["__preserved_manual_or_conflict__"] += 1
+                item.clear()
+                continue
+            supplier_match = code_match or ean_match
+            target, confidence, reason, alternatives = classify(item, supplier_match)
             sale = bool(re.search(r"\bvypredaj\b", fold(name)))
             rewrite_categories(item, target, sale)
             output.write(ET.tostring(item, encoding="utf-8", short_empty_elements=True))
