@@ -4,8 +4,8 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 
 ## Zásady
 
-1. Produkt má jednu hlavnú kategóriu podľa typu dielu.
-2. Vozidlo, značka, model, rok a motor sú parametre kompatibility, nie duplicitné produktové kategórie.
+1. Produkt má jednu predvolenú kategóriu podľa typu dielu a zároveň môže byť vo všetkých ďalších relevantných kategóriách.
+2. Vozidlo, značka, model, rok a motor sú parametre kompatibility; pomocné kategórie podľa motocykla alebo ATV sa môžu zachovať pre zákaznícku navigáciu.
 3. Produkt môže mať doplnkovú predajnú kolekciu (Novinky, Výpredaj), nie druhú technickú kategóriu.
 4. Názvy kategórií sú iba slovenské a používajú jednotné pomenovanie.
 5. Kategória `Ostatné` sa použije iba dočasne a každý taký produkt sa dostane do reportu na ručnú kontrolu.
@@ -318,11 +318,13 @@ Samostatné kolekcie `Najpredávanejšie` a `Skladom` sa nevytvoria.
 
 ## Migračné pravidlá
 
-- `Diely podľa motocykla` a `Diely podľa ATV` sa prevedú na parametre kompatibility.
+- `Diely podľa motocykla` a `Diely podľa ATV` sa použijú ako pomocné kategórie a zároveň sa prevedú na parametre kompatibility.
 - Duplicitné úrovne (`Motor > Motor`, `Brzdy > Brzdy`, `Karoséria a plasty > Karoséria a plasty`) sa zlúčia.
 - Chybné oddeľovače `>>` sa normalizujú na `>`.
-- Každý produkt dostane jednu `DEFAULT_CATEGORY` podľa presného typu dielu.
-- Alternatívne technické kategórie sa odstránia; ponechá sa iba prípadná predajná kolekcia.
+- Každý produkt dostane jednu `DEFAULT_CATEGORY` podľa presného typu dielu, ale môže mať viacero relevantných `CATEGORY` záznamov.
+- Zachovajú sa relevantné kategórie podľa vozidla a prípadná predajná kolekcia.
 - Produkty, ktoré pravidlá nevedia bezpečne zaradiť, sa nepublikujú automaticky a zapíšu sa do reportu.
 - Ručne overené zaradenie má prednosť a ďalší feed ho nesmie prepísať.
 - Produkt s nulovým skladom sa nesmie dať vložiť do košíka. Samostatná kategória `Skladom` nie je potrebná.
+- Automatická migrácia spracuje iba produkty jednoznačne spárované s dodávateľským feedom podľa kódu alebo EAN.
+- Nespárované, ručne spravované produkty od iného dodávateľa zostanú vrátane všetkých kategórií nezmenené.
