@@ -301,10 +301,20 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 
 ## Predajné kolekcie mimo technickej taxonómie
 
-- Novinky
-- Výpredaj
-- Najpredávanejšie
-- Skladom
+### Novinky
+
+- Nebudú samostatnou položkou hlavného menu.
+- Zobrazia sa iba v produktovom páse na spodnej časti domovskej stránky.
+- Zaradenie sa riadi dátumom pridania alebo príznakom `new`.
+
+### Výpredaj
+
+- Bude samostatnou položkou hlavného menu.
+- Produkt zostane vo svojej hlavnej technickej kategórii a zároveň sa zobrazí vo Výpredaji.
+- Do Výpredaja sa automaticky zaradí každý produkt, ktorého názov obsahuje slovo `výpredaj`, bez ohľadu na veľkosť písmen.
+- Ak je dostupný spoľahlivý príznak výpredaja alebo akciová cena, použije sa tiež; názov produktu však ostáva povinným pravidlom podľa zadania.
+
+Samostatné kolekcie `Najpredávanejšie` a `Skladom` sa nevytvoria.
 
 ## Migračné pravidlá
 
@@ -315,3 +325,4 @@ Základom je zákaznícka štruktúra verejne zobrazená na `motorado.sk`, uprav
 - Alternatívne technické kategórie sa odstránia; ponechá sa iba prípadná predajná kolekcia.
 - Produkty, ktoré pravidlá nevedia bezpečne zaradiť, sa nepublikujú automaticky a zapíšu sa do reportu.
 - Ručne overené zaradenie má prednosť a ďalší feed ho nesmie prepísať.
+- Produkt s nulovým skladom sa nesmie dať vložiť do košíka. Samostatná kategória `Skladom` nie je potrebná.
