@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 GENERIC = re.compile(
-    r"\b(motorový diel|diel podvozka|brzdový diel|elektrický diel|diel chladenia|"
+    r"\b(alebo diel|motorový diel|diel podvozka|brzdový diel|elektrický diel|diel chladenia|"
     r"diel pohonu|diel riadenia|cyklistický produkt|diel palivovej sústavy)\b",
     re.I,
 )
