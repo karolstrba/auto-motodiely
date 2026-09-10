@@ -43,3 +43,20 @@ Potom povoľte GitHub Pages cez **Settings → Pages → Source: GitHub Actions*
 ## Stav prekladov
 
 Aktuálny výstup zachováva pôvodný poľský názov a kategóriu. SK/CZ/HU výstupy sa nesmú zapnúť, kým nebude doplnená a skontrolovaná profesionálna prekladová pamäť. Shoptet zatiaľ neprepínajte na túto URL.
+
+## Moto-Maniak aktualizačný feed
+
+`motomaniak_update.py` vytvára samostatný súbor `motomaniak-update.xml` pre
+existujúce, už preložené produkty v Shoptete. Páruje ich podľa katalógového
+čísla a aktualizuje iba cenu, menu, sklad, dostupnosť a viditeľnosť.
+
+- používa dodávateľovu cenu s 23 % DPH bez druhého pripočítania DPH,
+- prepočíta PLN na EUR denným kurzom ECB,
+- aplikuje schválené pásma prirážok 70/60/50/40/30/25/20 %,
+- výsledok zaokrúhli nahor na najbližšiu cenu končiacu na `,90 EUR`,
+- nulový sklad skryje a kladný sklad znovu zobrazí,
+- nemení slovenské názvy, popisy, obrázky ani kategórie.
+
+Workflow generuje feed každú hodinu. Do Shoptetu sa má nastaviť ako
+aktualizačný import pre existujúce produkty, párovaný podľa kódu, s povolenými
+iba poľami cena, sklad, dostupnosť a viditeľnosť.
