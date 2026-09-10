@@ -7,10 +7,11 @@ on:
       - main
     paths:
       - generator.py
+      - motomaniak_update.py
       - tests/**
       - .github/workflows/build-feed.yml
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -38,6 +39,8 @@ jobs:
         env:
           SOURCE_FEED_URL: ${{ secrets.SOURCE_FEED_URL }}
         run: python generator.py --limit 44000 --allegro-markup 10
+      - name: Build Moto-Maniak update feed
+        run: python motomaniak_update.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
