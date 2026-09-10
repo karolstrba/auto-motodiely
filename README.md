@@ -44,19 +44,22 @@ Potom povoľte GitHub Pages cez **Settings → Pages → Source: GitHub Actions*
 
 Aktuálny výstup zachováva pôvodný poľský názov a kategóriu. SK/CZ/HU výstupy sa nesmú zapnúť, kým nebude doplnená a skontrolovaná profesionálna prekladová pamäť. Shoptet zatiaľ neprepínajte na túto URL.
 
-## Moto-Maniak aktualizačný feed
+## Moto-Maniak kompletný a aktualizačný feed
 
-`motomaniak_update.py` vytvára samostatný súbor `motomaniak-update.xml` pre
-existujúce, už preložené produkty v Shoptete. Páruje ich podľa katalógového
-čísla a aktualizuje iba cenu, menu, sklad, dostupnosť a viditeľnosť.
+`motomaniak_update.py` spája dodávateľský katalóg s hodinovým skladovým CSV a
+vytvára kompletný súbor `motomaniak-update.xml`. Nové produkty majú oddelené
+kódy s prefixom `MM-`, slovenský názov a popis, obrázky a iba existujúce
+kategórie AMDPRO. Existujúce produkty bez prefixu `MM-` nemení.
 
 - používa dodávateľovu cenu s 23 % DPH bez druhého pripočítania DPH,
 - prepočíta PLN na EUR denným kurzom ECB,
 - aplikuje schválené pásma prirážok 70/60/50/40/30/25/20 %,
 - výsledok zaokrúhli nahor na najbližšiu cenu končiacu na `,90 EUR`,
 - nulový sklad skryje a kladný sklad znovu zobrazí,
-- nemení slovenské názvy, popisy, obrázky ani kategórie.
+- kladný sklad zobrazí a nulový sklad skryje,
+- päť duplicitných dodávateľských kódov bezpečne rozlíši stabilnou príponou,
+- pri nejednoznačnom zaradení použije iba existujúcu hlavnú kategóriu
+  `ATV/UTV diely`, takže nevytvára nové kategórie.
 
-Workflow generuje feed každú hodinu. Do Shoptetu sa má nastaviť ako
-aktualizačný import pre existujúce produkty, párovaný podľa kódu, s povolenými
-iba poľami cena, sklad, dostupnosť a viditeľnosť.
+Workflow generuje feed každú hodinu. Rovnaká URL slúži na úvodný plný import
+aj na pravidelnú aktualizáciu ceny, skladu, dostupnosti a viditeľnosti.
