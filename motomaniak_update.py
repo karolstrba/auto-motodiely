@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from pathlib import Path
 
-SOURCE_URL = "https://www.moto-maniak.eu/xml/stanymag12.csv"\nCODE_PREFIX = "MM-"
+SOURCE_URL = "https://www.moto-maniak.eu/xml/stanymag12.csv"
+CODE_PREFIX = "MM-"
 ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 
 
