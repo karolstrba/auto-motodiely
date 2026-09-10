@@ -2,7 +2,7 @@ import tempfile, unittest
 import xml.etree.ElementTree as ET
 from decimal import Decimal
 from pathlib import Path
-from motomaniak_update import build_feed, category_for, markup, round_up_to_90, selling_price, stock_amount
+from motomaniak_update import build_feed, category_for, markup, round_up_to_90, selling_price, stock_amount, translate_title
 
 STOCK = """Nr_katalogowy;Cena_brutto;Ilosc_produktow
 A;40.00;>30
@@ -33,5 +33,12 @@ class MotoManiakTest(unittest.TestCase):
  def test_existing_category(self):
   target,specific=category_for({"Nazwa_produktu":"Sworzeń wahacza","Kategoria_1_nazwa":"DO QUADÓW"})
   self.assertTrue(specific); self.assertEqual(target,"ATV/UTV diely / Riadenie a podvozok / Guľové čapy")
+ def test_translation_keeps_fitment_and_oem(self):
+  source="Sworzeń kulisty zwrotnicy Suzuki Vinson Eiger KingQuad 400 500 51210-38F00"
+  translated=translate_title(source)
+  self.assertIn("Guľový čap",translated); self.assertIn("Suzuki Vinson Eiger KingQuad",translated); self.assertIn("51210-38F00",translated)
+ def test_specific_category_wins_over_parent(self):
+  target,_=category_for({"Nazwa_produktu":"Łożysko piasty koła Kawasaki KVF","Kategoria_1_nazwa":"DO QUADÓW","Kategoria_2_nazwa":"FELGI"})
+  self.assertEqual(target,"ATV/UTV diely / Kolesá a pneumatiky / Ložiská kolies")
 
 if __name__=="__main__": unittest.main()
