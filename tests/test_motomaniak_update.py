@@ -39,7 +39,7 @@ class MotoManiakUpdateTest(unittest.TestCase):
             counts = build_feed(source, output, Decimal("4"))
             self.assertEqual(counts, {"products": 2, "visible": 1, "hidden": 1, "invalid": 0})
             items = ET.parse(output).getroot().findall("SHOPITEM")
-            self.assertEqual(items[0].findtext("STOCK/AMOUNT"), "30")
+            self.assertEqual(items[0].findtext("CODE"), "MM-A")\n            self.assertEqual(items[0].findtext("STOCK/AMOUNT"), "30")
             self.assertEqual(items[0].findtext("VISIBILITY"), "visible")
             self.assertEqual(items[1].findtext("VISIBILITY"), "hidden")
 

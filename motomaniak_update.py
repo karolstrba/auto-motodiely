@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from pathlib import Path
 
-SOURCE_URL = "https://www.moto-maniak.eu/xml/stanymag12.csv"
+SOURCE_URL = "https://www.moto-maniak.eu/xml/stanymag12.csv"\nCODE_PREFIX = "MM-"
 ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 
 
@@ -128,7 +128,7 @@ def build_feed(source: Path, destination: Path, pln_per_eur: Decimal) -> dict[st
             amount = stock_amount(row.get("Ilosc_produktow"))
             visible = amount > 0
             item = ET.Element("SHOPITEM")
-            ET.SubElement(item, "CODE").text = code[:64]
+            ET.SubElement(item, "CODE").text = f"{CODE_PREFIX}{code}"[:64]
             ET.SubElement(item, "PRICE_VAT").text = f"{selling_price(gross_pln, pln_per_eur):.2f}"
             ET.SubElement(item, "CURRENCY").text = "EUR"
             ET.SubElement(item, "VISIBILITY").text = "visible" if visible else "hidden"
