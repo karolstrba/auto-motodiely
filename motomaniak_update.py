@@ -7,6 +7,7 @@ import csv
 import json
 import os
 import tempfile
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -78,11 +79,34 @@ def exchange_rate() -> Decimal:
 
 
 def download(url: str, destination: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "AMDPRO-feed/1.0"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        if response.status != 200:
-            raise RuntimeError(f"Supplier returned HTTP {response.status}")
-        destination.write_bytes(response.read())
+    required_header = {"Nr_katalogowy", "Cena_brutto", "Ilosc_produktow"}
+    last_error = "unknown response"
+    for attempt in range(1, 5):
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; AMDPRO-feed/1.1)",
+                    "Accept": "text/csv,text/plain,*/*",
+                    "Cache-Control": "no-cache",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=120) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"HTTP {response.status}")
+                content = response.read()
+            first_line = content.decode("utf-8-sig", errors="replace").splitlines()[0]
+            columns = {name.strip() for name in first_line.split(";")}
+            if not required_header.issubset(columns):
+                preview = first_line[:160].replace("\n", " ")
+                raise RuntimeError(f"unexpected header: {preview!r}")
+            destination.write_bytes(content)
+            return
+        except (OSError, RuntimeError, IndexError) as exc:
+            last_error = str(exc)
+            if attempt < 4:
+                time.sleep(attempt * 5)
+    raise RuntimeError(f"Supplier CSV download failed after 4 attempts: {last_error}")
 
 
 def build_feed(source: Path, destination: Path, pln_per_eur: Decimal) -> dict[str, int]:
