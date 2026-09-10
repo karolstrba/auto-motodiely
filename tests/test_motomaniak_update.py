@@ -41,7 +41,7 @@ class MotoManiakUpdateTest(unittest.TestCase):
             items = ET.parse(output).getroot().findall("SHOPITEM")
             self.assertEqual(items[0].findtext("CODE"), "MM-A")\n            self.assertEqual(items[0].findtext("STOCK/AMOUNT"), "30")
             self.assertEqual(items[0].findtext("VISIBILITY"), "visible")
-            self.assertEqual(items[1].findtext("VISIBILITY"), "hidden")
+            self.assertEqual(items[1].findtext("CODE"), "MM-B")\n            self.assertEqual(items[1].findtext("VISIBILITY"), "hidden")
 
 
 if __name__ == "__main__":
