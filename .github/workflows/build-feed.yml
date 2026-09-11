@@ -8,6 +8,7 @@ on:
     paths:
       - generator.py
       - motomaniak_update.py
+      - amio_merge.py
       - tests/**
       - .github/workflows/build-feed.yml
   schedule:
@@ -41,6 +42,8 @@ jobs:
         run: python generator.py --limit 44000 --allegro-markup 10
       - name: Build Moto-Maniak update feed
         run: python motomaniak_update.py
+      - name: Merge AMIO Base feed
+        run: python amio_merge.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
