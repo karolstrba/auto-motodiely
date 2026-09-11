@@ -9,9 +9,20 @@ import io
 import json
 import urllib.request
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 DEFAULT_URL_TEMPLATE = "https://amio-base-feed.vercel.app/api/feed?part={part}"
+
+MARKUPS = (
+    (Decimal("10"), Decimal("0.70")),
+    (Decimal("20"), Decimal("0.60")),
+    (Decimal("30"), Decimal("0.50")),
+    (Decimal("50"), Decimal("0.40")),
+    (Decimal("100"), Decimal("0.30")),
+    (Decimal("200"), Decimal("0.25")),
+)
+MARKUP_ABOVE_200 = Decimal("0.20")
 
 
 def parse_csv(payload: bytes) -> tuple[list[str], list[list[str]], str]:
@@ -56,6 +67,49 @@ def merge_payloads(payloads: list[bytes]) -> tuple[list[str], list[list[str]], s
     return header or [], merged, delimiter or ";"
 
 
+def selling_price(purchase_price: str) -> str:
+    raw = purchase_price.strip()
+    if not raw:
+        return ""
+    try:
+        price = Decimal(raw.replace(",", "."))
+    except InvalidOperation as exc:
+        raise ValueError(f"Invalid AMIO purchase price: {purchase_price!r}") from exc
+    if price < 0:
+        raise ValueError(f"Negative AMIO purchase price: {purchase_price!r}")
+    markup = MARKUP_ABOVE_200
+    for limit, candidate in MARKUPS:
+        if price <= limit:
+            markup = candidate
+            break
+    return str((price * (Decimal("1") + markup)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def add_sale_prices(header: list[str], rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+    try:
+        purchase_index = header.index("Price")
+    except ValueError as exc:
+        raise ValueError("AMIO feed has no Price column") from exc
+
+    if "SalePrice" in header:
+        sale_index = header.index("SalePrice")
+        output_header = list(header)
+        output_rows = [list(row) for row in rows]
+        for row in output_rows:
+            row[sale_index] = selling_price(row[purchase_index])
+        return output_header, output_rows
+
+    sale_index = purchase_index + 1
+    output_header = list(header)
+    output_header.insert(sale_index, "SalePrice")
+    output_rows = []
+    for row in rows:
+        output_row = list(row)
+        output_row.insert(sale_index, selling_price(row[purchase_index]))
+        output_rows.append(output_row)
+    return output_header, output_rows
+
+
 def download(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "AMDPRO-AMIO-merge/1.0"})
     with urllib.request.urlopen(request, timeout=180) as response:
@@ -78,6 +132,7 @@ def main() -> None:
 
     payloads = [download(args.url_template.format(part=part)) for part in range(1, args.parts + 1)]
     header, rows, delimiter = merge_payloads(payloads)
+    header, rows = add_sale_prices(header, rows)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -94,6 +149,9 @@ def main() -> None:
                 "products": len(rows),
                 "delimiter": delimiter,
                 "output": args.output.name,
+                "purchase_price_column": "Price",
+                "sale_price_column": "SalePrice",
+                "vat_added": False,
             },
             ensure_ascii=False,
             indent=2,
@@ -101,7 +159,10 @@ def main() -> None:
         + "\n",
         encoding="utf-8",
     )
-    print(f"Merged {len(rows)} AMIO rows from {args.parts} parts into {args.output}")
+    print(
+        f"Merged {len(rows)} AMIO rows from {args.parts} parts into {args.output}; "
+        "added SalePrice from the agreed tiered markups"
+    )
 
 
 if __name__ == "__main__":
