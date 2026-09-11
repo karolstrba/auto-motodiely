@@ -118,6 +118,101 @@ RULES = [
 # Product terminology used in the supplier catalogue. Longer expressions are
 # replaced first; model names, dimensions, years and OEM numbers stay intact.
 PHRASES = [
+ (r"zestaw homologacyjny do pojazdu utv ssv", "homologizačná sada pre vozidlo UTV/SSV"),
+ (r"do łatania dziur w oponie", "na opravu defektov pneumatiky"),
+ (r"najazdy aluminiowe składane blacha ryflowana komplet 2\s*szt", "skladacie hliníkové nájazdové rampy s protišmykovým povrchom, sada 2 ks"),
+ (r"do (?:klejenia|naprawy) dziur w oponie", "na opravu defektov pneumatiky"),
+ (r"i wiele innych atv/utv przeprawowych z rozstawem", "a ďalšie terénne ATV/UTV s roztečou"),
+ (r"zestaw szybkiego otwierania", "sada rýchleho otvárania"),
+ (r"pilot bezprzewodowy radiowy", "bezdrôtový diaľkový ovládač"),
+ (r"bez sterownika", "bez riadiacej jednotky"),
+ (r"zestaw homologacyjny", "homologizačná sada"),
+ (r"i wiele innych", "a ďalšie"),
+ (r"sznury butylowe", "butylové opravné knôty"),
+ (r"do dziur w oponie", "na opravu defektov pneumatiky"),
+ (r"olej do tylnego mostu z hamulcem mokrym", "olej do zadného diferenciálu s mokrou brzdou"),
+ (r"uszczelka pod pokrywę zaworową", "tesnenie veka ventilov"),
+ (r"uszczelniacze zaworowe", "guferá ventilov"),
+ (r"uszczelniacz zaworowy", "gufero ventilu"),
+ (r"łożysko dolne kolumny kierowniczej", "dolné ložisko stĺpika riadenia"),
+ (r"mocowanie dolne kufra przedniego", "dolný držiak predného kufra"),
+ (r"panel drzwiowy", "dverový panel"),
+ (r"panel drzwi", "dverový panel"),
+ (r"tworzywo sztuczne", "plast"),
+ (r"podgrzewany kciuk", "vyhrievanie palca"),
+ (r"sterownik do podgrzewanych manetek", "ovládač vyhrievaných rukovätí"),
+ (r"cylinderek hamulcowy", "brzdový valec"),
+ (r"punktowe podświetlenie pojazdu", "bodové podsvietenie vozidla"),
+ (r"sterowane smartfonem", "ovládané smartfónom"),
+ (r"z czujnikami", "so snímačmi"),
+ (r"bez czujnika", "bez snímača"),
+ (r"z mocowaniami", "s držiakmi"),
+ (r"łożyska kół", "ložiská kolies"),
+ (r"zestaw naprawczy wahacza", "opravná sada ramena"),
+ (r"końcówki drążków kierowniczych", "čapy riadiacich tyčí"),
+ (r"pierścienie tłokowe", "piestne krúžky"),
+ (r"wałek rozrządu", "vačkový hriadeľ"),
+ (r"łańcuch rozrządu", "rozvodová reťaz"),
+ (r"ślizg łańcucha", "vodidlo reťaze"),
+ (r"łącznik stabilizatora", "tyčka stabilizátora"),
+ (r"guma stabilizatora", "puzdro stabilizátora"),
+ (r"sprzęgło wtórne", "sekundárna spojka"),
+ (r"sprzęgło pierwotne", "primárna spojka"),
+ (r"talerz sprzęgła", "tanier spojky"),
+ (r"rolki wariatora", "valčeky variátora"),
+ (r"cewka magneta", "stator zapaľovania"),
+ (r"korek wlewu paliwa", "uzáver palivovej nádrže"),
+ (r"linka gazu", "plynové lanko"),
+ (r"dźwignia zmiany biegów", "radiaca páka"),
+ (r"czujnik prędkości", "snímač rýchlosti"),
+ (r"czujnik położenia przepustnicy", "snímač polohy škrtiacej klapky"),
+ (r"sonda lambda", "lambda sonda"),
+ (r"moduł zapłonowy", "zapaľovací modul"),
+ (r"przewód wysokiego napięcia", "vysokonapäťový kábel"),
+ (r"osłona dłoni", "chránič rúk"),
+ (r"szyba przednia", "čelné sklo"),
+ (r"lampa tylna", "zadné svetlo"),
+ (r"lampa przednia", "predné svetlo"),
+ (r"żarówka led", "LED žiarovka"),
+ (r"zestaw montażowy", "montážna sada"),
+ (r"zestaw uszczelek silnika top[- ]end", "sada tesnení hornej časti motora"),
+ (r"komplet uszczelek na silnik", "kompletná sada tesnení motora"),
+ (r"zestaw uszczelek silnika", "sada tesnení motora"),
+ (r"uszczelka pod głowicę", "tesnenie pod hlavu"),
+ (r"sterowanie do wyciągarki", "ovládanie navijaka"),
+ (r"przełącznik kierunkowskazów i klaksonu", "prepínač smeroviek a klaksónu"),
+ (r"nakrętka chromowana do alufelg", "chrómovaná matica na hliníkové disky"),
+ (r"nakrętka czarna do alufelg", "čierna matica na hliníkové disky"),
+ (r"nakrętka przelotowa do felg aluminiowych", "priechodná matica na hliníkové disky"),
+ (r"nakrętka przelotowa do alufelg", "priechodná matica na hliníkové disky"),
+ (r"hak holowniczy na tył", "zadné ťažné zariadenie"),
+ (r"uchwyt lamp dachowych", "držiak strešných svetiel"),
+ (r"uchwyt lusterka", "držiak zrkadla"),
+ (r"uchwyt na szpadel", "držiak na rýľ"),
+ (r"torby na drzwi", "tašky na dvere"),
+ (r"torba na dach", "strešná taška"),
+ (r"poszerzenia nadkoli", "rozšírenia blatníkov"),
+ (r"panewki wału korbowego", "ložiskové panvy kľukového hriadeľa"),
+ (r"łożysko piasty tylnej", "ložisko zadného náboja"),
+ (r"uszczelniacz dyferencjału przedniego", "gufero predného diferenciálu"),
+ (r"uszczelniacz dyferencjału tylnego", "gufero zadného diferenciálu"),
+ (r"czujnik luzu oraz biegu wstecznego", "snímač neutrálu a spiatočky"),
+ (r"adapter czujnika temperatury", "adaptér snímača teploty"),
+ (r"przełącznik z przewodami", "prepínač s kabelážou"),
+ (r"zderzak gumowy do wyciągarki", "gumový doraz navijaka"),
+ (r"zderzak do wyciągarki", "doraz navijaka"),
+ (r"pokrowiec na quada", "ochranná plachta na ATV"),
+ (r"gumy i uszczelniacze", "gumové diely a guferá"),
+ (r"krzyżak wału napędowego przedniego lub tylnego", "kríž predného alebo zadného hnacieho hriadeľa"),
+ (r"na przód lub tył", "na prednú alebo zadnú nápravu"),
+ (r"lewy lub prawy", "ľavý alebo pravý"),
+ (r"lewa lub prawa", "ľavá alebo pravá"),
+ (r"przedni lub tylny", "predný alebo zadný"),
+ (r"przednia lub tylna", "predná alebo zadná"),
+ (r"z uchwytami na kierownicę", "s držiakmi na riadidlá"),
+ (r"na klucz", "na kľúč"),
+ (r"zamiennik oryginału", "náhrada originálneho dielu"),
+ (r"zamiennik oem", "náhrada OEM dielu"),
  (r"rękawice tekstylne", "textilné rukavice"),
  (r"wtyczka gniazdo andersona", "Anderson zástrčka a zásuvka"),
  (r"w kolorze", "vo farbe"),
@@ -234,8 +329,67 @@ WORDS = {
  "silnik":"motor", "manetka":"rukoväť", "zwrotnica":"otočný čap", "inne":"ostatné",
  "quadów":"ATV/UTV", "quada":"ATV/UTV", "części":"diel", "część":"diel", "naprawczy":"opravný",
  "do":"pre", "na":"na", "pod":"pod", "bez":"bez", "prawa":"pravá", "szt":"ks",
+ "lub":"alebo", "oraz":"a", "zamiennik":"náhrada", "odpowiednik":"ekvivalent", "pasuje":"vhodné", "pasujący":"vhodný",
+ "chromowana":"chrómovaná", "chromowany":"chrómovaný", "srebrny":"strieborný", "srebrna":"strieborná", "srebrne":"strieborné",
+ "uchwyt":"držiak", "uchwyty":"držiaky", "uchwytami":"držiakmi", "obudowa":"kryt", "maskownica":"kryt",
+ "nakrętka":"matica", "nakrętki":"matice", "aluminiowych":"hliníkové", "alufelg":"hliníkové disky", "klucz":"kľúč",
+ "panewki":"ložiskové panvy", "syntetyczna":"syntetická", "neoprenowa":"neoprénová", "gumowe":"gumové",
+ "kpl":"komplet", "przewody":"káble", "przewodami":"káblami", "chwilowy":"momentový", "dachowych":"strešných",
+ "drzwi":"dvere", "torba":"taška", "torby":"tašky", "szpadel":"rýľ", "nawigacji":"navigácie",
+ "akcesoria":"príslušenstvo", "dodatkowe":"doplnkové", "dodatkwe":"doplnkové", "dedykowany":"určený", "dedykowana":"určená",
+ "wzmocniony":"zosilnený", "fabrycznie":"z výroby", "składany":"skladací", "składane":"skladacie", "łożyskowy":"ložiskový",
+ "przelotowa":"priechodná", "poszerzenia":"rozšírenia", "nadkoli":"blatníkov", "mocowaniem":"držiakom",
+ "gazu":"plynu", "przepustnicy":"škrtiacej klapky", "zacisku":"strmeňa", "hamulcowego":"brzdového",
+ "wysokiego":"vysokého", "ciśnienia":"tlaku", "mokrego":"mokrej", "mokre":"mokré", "biegu":"rýchlostného stupňa",
+ "luzu":"neutrálu", "przeznaczony":"určený", "przeznaczona":"určená", "zastosowanie":"kompatibilita",
+ "przód":"predná časť", "tył":"zadná časť", "koła":"kolesa", "kół":"kolies", "otworów":"otvorov",
+ "rozrządu":"rozvodov", "wahacza":"ramena", "górnego":"horného", "dolnego":"dolného", "sworzeń":"čap",
+ "łańcucha":"reťaze", "ślizg":"vodidlo", "ślizgi":"vodidlá", "zrywające":"poistné", "wtórne":"sekundárne",
+ "kufra":"kufra", "stabilizatora":"stabilizátora", "wody":"vody", "biegów":"radenia", "pojemność":"objem",
+ "dłoni":"rúk", "mimośród":"excenter", "cały":"celý", "drążków":"tyčí", "pół":"polovica",
+ "pierścienie":"krúžky", "tłokowe":"piestne", "szczęki":"čeľuste", "licznik":"prístrojový panel",
+ "szpilka":"štift", "wałek":"hriadeľ", "dużo":"veľký", "błotników":"blatníkov", "wentylatora":"ventilátora",
+ "kierownica":"riadidlá", "stożkowa":"kužeľová", "pojazdów":"vozidiel", "kierowniczych":"riadiacich",
+ "zwiększona":"zvýšená", "firmy":"značky", "zestawem":"sadou", "montażowym":"montážnym", "pokrywy":"krytu",
+ "położenia":"polohy", "elektroniczny":"elektronický", "napięcia":"napätia", "łańcuszka":"retiazky",
+ "światłem":"svetlom", "zębate":"ozubené", "kierownicę":"riadidlá", "kierowniczej":"riadenia",
+ "poprzeczka":"priečka", "tłoczek":"piestik", "moduł":"modul", "tłokowy":"piestový", "prędkości":"rýchlosti",
+ "napedowy":"hnací", "gazowy":"plynový", "łańcuszek":"retiazka", "sprężyny":"pružiny", "króciec":"hrdlo",
+ "ściągacz":"sťahovák", "rolki":"valčeky", "kapsel":"krytka", "kołki":"kolíky", "cieczy":"kvapaliny",
+ "okładziny":"obloženie", "półosie":"poloosi", "dźwignia":"páka", "pomarańczowe":"oranžové",
+ "plastików":"plastov", "przegubów":"kĺbov", "modele":"modely", "oś":"náprava", "górę":"hornú časť",
+ "zaworowa":"ventilová", "dystansów":"rozširovacích podložiek", "lamp":"svetiel", "szare":"sivé", "nowość":"novinka",
+ "regulowana":"nastaviteľná", "sprzęgłowy":"spojkový", "homologacja":"homologizácia", "ciężarki":"závažia",
+ "bezprzewodowy":"bezdrôtový", "wiele":"viaceré", "wyciągarka":"navijak", "krótki":"krátky", "wszystkie":"všetky",
+ "quady":"ATV", "napędowa":"hnacia", "kanistrów":"kanistrov", "stelaż":"rám", "wycieraczka":"stierač",
+ "wyświetlacz":"displej", "dynamiczne":"dynamické", "zderzak":"nárazník", "elektryczne":"elektrické",
+ "przeciw":"proti", "podświetlenie":"podsvietenie", "korbowego":"kľukového", "tarcze":"kotúče",
+ "sprzęgłowe":"spojkové", "przekładki":"lamely", "filtra":"filtra", "ręcznego":"ručného", "kontroler":"riadiaca jednotka",
+ "alternatora":"alternátora", "hamulcowej":"brzdovej", "wzmacniana":"zosilnená", "zielone":"zelené", "żarówka":"žiarovka",
+ "podwójne":"dvojité", "przełączników":"prepínačov", "żółty":"žltý", "zapłonowy":"zapaľovací",
+ "sintermetalowe":"sintrované", "przekładnia":"prevodovka", "ssący":"sací", "wydechowy":"výfukový",
+ "pełna":"plná", "linka":"lanko", "zabezpieczenie":"poistka", "sworznia":"čapu", "amortyzatory":"tlmiče",
+ "gumy":"gumové diely", "wirnik":"rotor", "pasek":"remeň", "sztyca":"driek", "przewód":"kábel", "zacisk":"strmeň",
+ "szczeki":"čeľuste", "hamulcowe":"brzdové", "macphersona":"MacPherson", "haka":"háku", "uszczelniaczami":"guferami",
+ "długie":"dlhé", "zawieszenia":"zavesenia", "szkło":"sklo", "niska":"nízka", "opon":"pneumatík",
+ "dekiel":"kryt", "wyjście":"výstup", "boczne":"bočné", "aluminiowym":"hliníkovým", "oparciem":"operadlom",
+ "śruba":"skrutka", "czujnikiem":"snímačom", "pojazdy":"vozidlá", "głowicy":"hlavy", "złącze":"konektor",
+ "pomarańczowy":"oranžový", "skrzyni":"prevodovky", "stalowy":"oceľový", "magnesowe":"magnetické",
+ "podgrzewane":"vyhrievané", "układu":"systému", "listwy":"rampy", "zasilającej":"napájacej",
+ "bagażnik":"nosič", "zasilania":"napájania", "wieloklinem":"drážkovaním", "podświetlana":"podsvietená",
+ "i":"a", "w":"v", "we":"v", "ze":"so",
+ "kulisty":"guľový", "zaworowy":"ventilový", "zaworowa":"ventilová", "zaworowe":"ventilové", "zaworowej":"ventilov",
+ "opakowanie":"balenie", "hamulcem":"brzdou", "mokrym":"mokrou", "dolne":"dolné", "nowe":"nový", "nowa":"nová", "nowy":"nový",
+ "tworzywo":"materiál", "sztuczne":"plastový", "czujnika":"snímača", "mocowaniami":"držiakmi", "sztuk":"kusov",
+ "termometr":"teplomer", "czujnikami":"snímačmi", "podgrzewany":"vyhrievaný", "kciuk":"palec", "wtyczki":"konektora",
+ "sterownik":"ovládač", "podgrzewanych":"vyhrievaných", "manetek":"rukovätí", "punktowe":"bodové", "dwupozycyjny":"dvojpolohový",
+ "sterowane":"ovládané", "smartfonem":"smartfónom", "silniki":"motory", "tlaku":"tlaku", "regulowany":"nastaviteľný",
+ "homologacyjny":"homologizačný", "drzwiowy":"dverový", "inteligentne":"inteligentné", "boczne":"bočné", "serii":"série",
+ "ryflowana":"protišmyková", "składane":"skladacie", "aluminium":"hliník", "alternatora":"alternátora", "czarno":"čierno",
+ "napedowego":"hnacieho", "szybkiego":"rýchleho", "otwierania":"otvárania", "radiowy":"rádiový", "sterownika":"ovládača",
+ "pojazdu":"vozidla", "przeprawowych":"terénnych", "rozstawem":"roztečou", "aluminiowe":"hliníkové", "blacha":"povrch",
 }
-POLISH_MARKERS = re.compile(r"\b(?:przedni|przednia|tylny|tylna|lewy|lewa|prawy|prawa|łożysk\w*|uszczelk\w*|wahacz\w*|rozrusznik\w*|wyciągark\w*|kierownicz\w*|przełącznik\w*|włącznik\w*|paliwa|powietrza|silnika)\b|[ąćęłńóśźż]", re.I)
+POLISH_MARKERS = re.compile(r"\b(?:przedni|przednia|tylny|tylna|lewy|lewa|prawy|prawa|łożysk\w*|uszczelk\w*|wahacz\w*|rozrusznik\w*|wyciągark\w*|kierownicz\w*|przełącznik\w*|włącznik\w*|paliwa|powietrza|silnika|zamiennik|odpowiednik|uchwyt\w*|chromowan\w*|srebrn\w*|panewk\w*|przewod\w*|drzwi|torb\w*|mocowaniem|przelotow\w*|poszerzenia|syntetyczn\w*|gumowe|lub|oraz)\b|[ąćęłńóśźż]", re.I)
 
 def dec(v):
  try: return Decimal((v or "0").strip().replace(",", "."))
@@ -325,6 +479,16 @@ def translate_title(text):
  # already translated technical words, but drop unresolved Polish tokens.
  text=" ".join(t for t in text.split() if not POLISH_MARKERS.search(t))
  text=re.sub(r"\s+([,.;:])",r"\1",re.sub(r"\s+"," ",text)).strip(" -,.;")
+ # Natural Slovak word order for the most frequent ATV chassis constructions.
+ side={"predný":"predné","zadný":"zadné","horný":"horné","dolný":"dolné","ľavý":"ľavé","pravý":"pravé"}
+ def arm(m):
+  adjectives=" ".join(side.get(x.lower(),x) for x in m.groups() if x)
+  return f"{adjectives.capitalize()} rameno"
+ text=re.sub(r"(?i)\brameno\s+(predný|zadný)(?:\s+(horný|dolný))?(?:\s+(ľavý|pravý))?\b",arm,text)
+ text=re.sub(r"(?i)\bopravná sada ramena (horného|dolného)\b",r"opravná sada \1 ramena",text)
+ text=re.sub(r"(?i)\bčap ramena (horný|dolný)\b",r"\1 čap ramena",text)
+ text=re.sub(r"(?i)\bguľový čap náboja kolesa (horný|dolný)\b",r"\1 guľový čap náboja kolesa",text)
+ text=re.sub(r"(?i)\bkukla štandardná farba čierny\b","štandardná kukla – čierna",text)
  return text[:1].upper()+text[1:]
 
 def product_name(r,category):
@@ -337,16 +501,84 @@ def product_name(r,category):
 def reference_codes(text,product_code):
  result=[]
  for token in re.findall(r"(?<![\w])(?=[A-Z0-9./-]{4,})(?=[A-Z0-9./-]*\d)[A-Z0-9]+(?:[./-][A-Z0-9]+)+(?![\w])",(text or "").upper()):
+  if not re.search(r"[A-Z]",token): continue
   if token != product_code.upper() and token not in result: result.append(token)
   if len(result)>=16: break
  return result
 
+def description_lines(value):
+ text=html.unescape(value or "")
+ text=re.sub(r"(?i)<\s*(?:br\s*/?|/p|/li|/div|/h[1-6])\s*>","\n",text)
+ text=re.sub(r"<[^>]+>"," ",text)
+ return [re.sub(r"\s+"," ",line).strip(" \t-*•:;") for line in text.splitlines() if re.sub(r"\s+"," ",line).strip(" \t-*•:;")]
+
+def translate_detail(text):
+ result=translate_title(text)
+ replacements={
+  "zastosowanie":"kompatibilita", "pasuje do":"vhodné pre", "producent":"výrobca",
+  "materiał":"materiál", "wymiary":"rozmery", "długość":"dĺžka", "szerokość":"šírka",
+  "wysokość":"výška", "waga":"hmotnosť", "kolor":"farba", "rozmiar":"veľkosť",
+  "przód":"predná časť", "tył":"zadná časť", "rear":"zadná", "front":"predná",
+ }
+ for source,target in replacements.items(): result=re.sub(rf"\b{source}\b",target,result,flags=re.I)
+ result=re.sub(r"\s+"," ",result).strip(" ,.;:-")
+ return result
+
+def technical_details(value):
+ details=[]
+ labels={
+  "materiał":"Materiál", "kolor":"Farba", "rozmiar":"Veľkosť", "wymiary":"Rozmery",
+  "długość":"Dĺžka", "szerokość":"Šírka", "wysokość":"Výška", "waga":"Hmotnosť",
+  "średnica":"Priemer", "grubość":"Hrúbka", "gwint":"Závit", "rozstaw":"Rozteč",
+  "napięcie":"Napätie", "moc":"Výkon", "pojemność":"Objem", "udźwig":"Nosnosť",
+ }
+ for line in description_lines(value):
+  match=re.match(r"(?i)^([^:]{2,28})\s*:\s*(.{1,120})$",line)
+  if not match: continue
+  key=match.group(1).strip().lower(); label=next((sk for pl,sk in labels.items() if key==pl or key.startswith(pl+" ")),None)
+  if not label: continue
+  translated=translate_detail(match.group(2))
+  if translated and not POLISH_MARKERS.search(translated):
+   pair=(label,translated)
+   if pair not in details: details.append(pair)
+  if len(details)>=12: break
+ return details
+
+def compatible_models(value):
+ lines=description_lines(value); collecting=False; models=[]
+ start=re.compile(r"(?i)^(?:zastosowanie|pasuje do|dedykowan\w* do|kompatybiln\w* z)\b")
+ stop=re.compile(r"(?i)^(?:dane techniczne|właściwości|skład zestawu|opis|uwaga|materiał|kolor|wymiary)\b")
+ for line in lines:
+  if start.search(line):
+   collecting=True
+   line=start.sub("",line).strip(" :")
+  elif collecting and stop.search(line):
+   break
+  if not collecting or not line or not re.search(r"\d",line): continue
+  # Diagram labels after a dash are not part of the vehicle designation.
+  line=re.sub(r"\s+-\s+(?:Rear|Front|Steering|Prop|Crankcase|Suspension|Brake|Caliper).*$","",line,flags=re.I)
+  translated=translate_detail(line)
+  if len(translated)>180 or POLISH_MARKERS.search(translated): continue
+  if translated not in models: models.append(translated)
+  if len(models)>=60: break
+ return models
+
 def description(name,r):
  code=(r.get("Nr_katalogowy") or "").strip(); maker=(r.get("Producent") or "Moto-Maniak").strip()
  refs=reference_codes((r.get("Nazwa_produktu") or "")+" "+(r.get("Opis") or ""),code)
- parts=[f"<p><strong>{html.escape(name)}</strong></p>",f"<p>Katalógové číslo: <strong>{html.escape(code)}</strong><br>Výrobca: {html.escape(maker)}</p>"]
- if refs: parts.append(f"<p>OEM a referenčné čísla: {html.escape(', '.join(refs))}</p>")
- parts.append("<p>Modely, rozmery a ročníky uvedené v názve vychádzajú z katalógu dodávateľa. Pred objednaním odporúčame porovnať OEM číslo a overiť kompatibilitu s konkrétnym vozidlom.</p>")
+ details=technical_details(r.get("Opis") or ""); models=compatible_models(r.get("Opis") or "")
+ parts=[f"<h2>{html.escape(name)}</h2>","<h3>Informácie o produkte</h3>","<ul>",f"<li>Katalógové číslo: <strong>{html.escape(code)}</strong></li>",f"<li>Výrobca: {html.escape(maker)}</li>"]
+ if refs: parts.append(f"<li>OEM a referenčné čísla: {html.escape(', '.join(refs))}</li>")
+ parts.append("</ul>")
+ if details:
+  parts.append("<h3>Technické údaje</h3><ul>")
+  parts.extend(f"<li><strong>{html.escape(label)}:</strong> {html.escape(value)}</li>" for label,value in details)
+  parts.append("</ul>")
+ if models:
+  parts.append("<h3>Kompatibilita</h3><ul>")
+  parts.extend(f"<li>{html.escape(model)}</li>" for model in models)
+  parts.append("</ul>")
+ parts.append("<p>Pred objednaním porovnajte katalógové alebo OEM číslo a overte zhodu s presným modelom, ročníkom a verziou vozidla.</p>")
  return "".join(parts)
 
 def build_feed(catalog_path,stock_path,destination,rate):
