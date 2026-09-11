@@ -1,6 +1,6 @@
 import unittest
 
-from amio_merge import merge_payloads, parse_csv
+from amio_merge import add_sale_prices, merge_payloads, parse_csv, selling_price
 
 
 class AmioMergeTests(unittest.TestCase):
@@ -26,6 +26,38 @@ class AmioMergeTests(unittest.TestCase):
     def test_rejects_different_headers(self):
         with self.assertRaisesRegex(ValueError, "different CSV headers"):
             merge_payloads([b"sku;name\nA;One\n", b"code;name\nB;Two\n"])
+
+    def test_selling_price_tiers_and_rounding(self):
+        cases = {
+            "4.81": "8.18",
+            "10": "17.00",
+            "10.01": "16.02",
+            "20": "32.00",
+            "20.01": "30.02",
+            "30": "45.00",
+            "30.01": "42.01",
+            "50": "70.00",
+            "50.01": "65.01",
+            "100": "130.00",
+            "100.01": "125.01",
+            "200": "250.00",
+            "200.01": "240.01",
+            "": "",
+        }
+        for purchase, expected in cases.items():
+            with self.subTest(purchase=purchase):
+                self.assertEqual(selling_price(purchase), expected)
+
+    def test_adds_sale_price_after_purchase_price(self):
+        header, rows = add_sale_prices(
+            ["SKU", "Price", "Name"],
+            [["A1", "4.81", "Adapter"], ["A2", "0,92", "Light"]],
+        )
+        self.assertEqual(header, ["SKU", "Price", "SalePrice", "Name"])
+        self.assertEqual(
+            rows,
+            [["A1", "4.81", "8.18", "Adapter"], ["A2", "0,92", "1.56", "Light"]],
+        )
 
 
 if __name__ == "__main__":
