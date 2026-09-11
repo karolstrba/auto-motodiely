@@ -2,7 +2,7 @@ import tempfile, unittest
 import xml.etree.ElementTree as ET
 from decimal import Decimal
 from pathlib import Path
-from motomaniak_update import build_feed, category_for, markup, round_up_to_90, selling_price, stock_amount, translate_title
+from motomaniak_update import build_feed, category_for, compatible_models, markup, reference_codes, round_up_to_90, selling_price, stock_amount, technical_details, translate_title
 
 STOCK = """Nr_katalogowy;Cena_brutto;Ilosc_produktow
 A;40.00;>30
@@ -37,6 +37,15 @@ class MotoManiakTest(unittest.TestCase):
   source="Sworzeń kulisty zwrotnicy Suzuki Vinson Eiger KingQuad 400 500 51210-38F00"
   translated=translate_title(source)
   self.assertIn("Guľový čap",translated); self.assertIn("Suzuki Vinson Eiger KingQuad",translated); self.assertIn("51210-38F00",translated)
+ def test_professional_title_phrases(self):
+  self.assertEqual(translate_title("Kominiarka standard kolor czarny"),"Štandardná kukla – čierna")
+  self.assertIn("skladacie hliníkové nájazdové rampy",translate_title("Najazdy aluminiowe składane blacha ryflowana komplet 2szt").lower())
+ def test_description_extracts_verified_facts(self):
+  source="materiał: aluminium<br>kolor: czarny<br>zastosowanie:<br>2020 POLARIS RZR 1000 (A20ABC) - Rear Brake"
+  self.assertEqual(technical_details(source),[("Materiál","Hliník"),("Farba","Čierny")])
+  self.assertEqual(compatible_models(source),["2020 POLARIS RZR 1000 (A20ABC)"])
+ def test_year_ranges_are_not_oem_codes(self):
+  self.assertEqual(reference_codes("Yamaha Raptor 700 2006-2020 OEM 5TG-12345-00","SKU-1"),["5TG-12345-00"])
  def test_specific_category_wins_over_parent(self):
   target,_=category_for({"Nazwa_produktu":"Łożysko piasty koła Kawasaki KVF","Kategoria_1_nazwa":"DO QUADÓW","Kategoria_2_nazwa":"FELGI"})
   self.assertEqual(target,"ATV/UTV diely / Kolesá a pneumatiky / Ložiská kolies")
